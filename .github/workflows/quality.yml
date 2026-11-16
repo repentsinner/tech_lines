@@ -71,3 +71,6 @@ jobs:
 
       - name: Analyze
         run: flutter analyze --fatal-infos
+
+  example-build:
+    uses: ./.github/workflows/example-build.yml

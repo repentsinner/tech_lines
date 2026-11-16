@@ -1,0 +1,33 @@
+name: Release
+
+# Flywheel creates each release as a draft and pushes its tag. This
+# attaches the example builds while the draft is still mutable, then
+# publishes it, which is when GitHub's immutable releases lock its tag and
+# assets. A failed build leaves a draft to retry rather than a published
+# release missing a platform.
+#
+# The trigger is the tag push, because GitHub fires no release event for
+# a draft.
+
+on:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    uses: ./.github/workflows/example-build.yml
+    with:
+      release-tag: ${{ github.ref_name }}
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --draft=false --repo "$GITHUB_REPOSITORY"

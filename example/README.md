@@ -8,7 +8,13 @@ a consumer style that fades it toward the edge of its patch.
 
 ## Run the example
 
-From this directory:
+Each release on GitHub carries a build of the example for Linux, macOS
+and Windows. The macOS build is unsigned, so macOS quarantines it on
+download. To clear the quarantine, run
+`xattr -dr com.apple.quarantine tech_lines_example.app` after unzipping.
+
+To build it yourself, run from this directory with `linux`, `macos` or
+`windows` as the device:
 
 ```sh
 flutter run -d linux --release
