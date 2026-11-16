@@ -87,3 +87,43 @@ final class LineStyle {
   final double progressDim;
   final double progressBoost;
 }
+
+/// A band that travels along a batch's progress, changing how the lines
+/// inside it draw.
+///
+/// Progress comes from [LineSegments.progress] and interpolates across
+/// each segment, so with progress measured as distance along a path the
+/// band moves at constant speed however the path is split into segments.
+final class LinePulse {
+  const LinePulse({
+    required this.center,
+    required this.halfLength,
+    this.color = const LinearRgba(1, 1, 1),
+    this.colorMix = 1,
+    this.opacity = 1,
+    this.widthScale = 1,
+    this.glowPixels = 0,
+  });
+
+  /// Progress at the middle of the band.
+  final double center;
+
+  /// Progress from the middle of the band to where it fades out.
+  final double halfLength;
+
+  /// Colour the band tints the line towards, and the glow's colour.
+  final LinearRgba color;
+
+  /// How far, 0 to 1, the band tints the line towards [color].
+  final double colorMix;
+
+  /// Opacity factor at the middle of the band.
+  final double opacity;
+
+  /// Width factor at the middle of the band.
+  final double widthScale;
+
+  /// Length in target pixels over which the glow falls to about a third
+  /// of its strength past the line's edge; 0 draws no glow.
+  final double glowPixels;
+}

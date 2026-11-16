@@ -30,6 +30,12 @@ abstract final class ScreenLineParams {
   static const progressDim = 'progressDim';
   static const progressBoost = 'progressBoost';
   static const edgeDrawsAll = 'edgeDrawsAll';
+  static const pulseCenter = 'pulseCenter';
+  static const pulseHalfLength = 'pulseHalfLength';
+  static const pulseColor = 'pulseColor';
+  static const pulseOpacity = 'pulseOpacity';
+  static const pulseWidthScale = 'pulseWidthScale';
+  static const pulseGlowPixels = 'pulseGlowPixels';
 }
 
 /// Fraction of its distance from the camera that a line moves towards it,
@@ -284,6 +290,8 @@ class ScreenLineRenderer {
       style.progressBoost,
     );
 
+    await LineBatch._writePulse(instance, null);
+
     final onTop = style.depthMode == LineDepthMode.onTop;
     await instance.setParameterBool(ScreenLineParams.edgeDrawsAll, onTop);
     if (onTop) {
@@ -427,6 +435,51 @@ class LineBatch {
   }) async {
     await _setAll(ScreenLineParams.progressCursor, cursor);
     await _setAll(ScreenLineParams.progressWindowEnd, windowEnd);
+  }
+
+  /// Draws [pulse] along the batch's progress, or no pulse when null.
+  ///
+  /// Call it every frame with a moving [LinePulse.center] to animate the
+  /// band along the lines.
+  Future<void> setPulse(LinePulse? pulse) async {
+    if (_destroyed) return;
+    for (final p in _passes) {
+      await _writePulse(p.instance, pulse);
+    }
+  }
+
+  static Future<void> _writePulse(
+    MaterialInstance<dynamic> instance,
+    LinePulse? pulse,
+  ) async {
+    final c = pulse?.color ?? const LinearRgba(1, 1, 1);
+    await instance.setParameterFloat(
+      ScreenLineParams.pulseCenter,
+      pulse?.center ?? 0,
+    );
+    await instance.setParameterFloat(
+      ScreenLineParams.pulseHalfLength,
+      pulse?.halfLength ?? 0,
+    );
+    await instance.setParameterFloat4(
+      ScreenLineParams.pulseColor,
+      c.r,
+      c.g,
+      c.b,
+      pulse?.colorMix ?? 0,
+    );
+    await instance.setParameterFloat(
+      ScreenLineParams.pulseOpacity,
+      pulse?.opacity ?? 1,
+    );
+    await instance.setParameterFloat(
+      ScreenLineParams.pulseWidthScale,
+      pulse?.widthScale ?? 1,
+    );
+    await instance.setParameterFloat(
+      ScreenLineParams.pulseGlowPixels,
+      pulse?.glowPixels ?? 0,
+    );
   }
 
   /// Sets the model transform applied to every segment.

@@ -21,26 +21,51 @@ void main(List<String> args) {
   final index = arg == null
       ? 0
       : patterns.indexWhere((p) => p.name.toLowerCase().startsWith(arg));
-  runApp(LinePatternsApp(initialPattern: index < 0 ? 0 : index));
+  // `--pulse=color,glow` starts with those pulse effects on.
+  final pulse = args
+      .where((a) => a.startsWith('--pulse='))
+      .expand((a) => a.substring('--pulse='.length).split(','))
+      .map((name) => PulseEffect.values.where((e) => e.name == name))
+      .expand((e) => e)
+      .toSet();
+  runApp(
+    LinePatternsApp(initialPattern: index < 0 ? 0 : index, initialPulse: pulse),
+  );
 }
 
+/// What a pulse changes as it travels along a path.
+enum PulseEffect { color, opacity, width, glow }
+
 class LinePatternsApp extends StatelessWidget {
-  const LinePatternsApp({super.key, this.initialPattern = 0});
+  const LinePatternsApp({
+    super.key,
+    this.initialPattern = 0,
+    this.initialPulse = const {},
+  });
 
   final int initialPattern;
+  final Set<PulseEffect> initialPulse;
 
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: 'Line patterns',
     theme: ThemeData(colorSchemeSeed: Colors.teal, brightness: Brightness.dark),
-    home: LinePatternsPage(initialPattern: initialPattern),
+    home: LinePatternsPage(
+      initialPattern: initialPattern,
+      initialPulse: initialPulse,
+    ),
   );
 }
 
 class LinePatternsPage extends StatefulWidget {
-  const LinePatternsPage({super.key, this.initialPattern = 0});
+  const LinePatternsPage({
+    super.key,
+    this.initialPattern = 0,
+    this.initialPulse = const {},
+  });
 
   final int initialPattern;
+  final Set<PulseEffect> initialPulse;
 
   @override
   State<LinePatternsPage> createState() => _LinePatternsPageState();
@@ -51,6 +76,16 @@ class _LinePatternsPageState extends State<LinePatternsPage>
   ThermionViewer? _viewer;
   ScreenLineRenderer? _lines;
   final List<LineBatch> _batches = [];
+
+  // Batches that carry a path, with its length in world units.
+  final List<(LineBatch, double)> _paths = [];
+
+  // The pulse travelling along every path.
+  late final Set<PulseEffect> _effects = {...widget.initialPulse};
+  double _pulseSpeed = 40;
+  double _pulseLength = 12;
+  bool _progressByCount = false;
+  Duration _elapsed = Duration.zero;
   final List<ThermionAsset<dynamic>> _boxes = [];
   String? _error;
 
@@ -120,6 +155,7 @@ class _LinePatternsPageState extends State<LinePatternsPage>
       });
       await _updateCamera();
       _rebuild();
+      _updateTicker();
     } on Exception catch (e) {
       setState(() => _error = '$e');
     }
@@ -134,10 +170,56 @@ class _LinePatternsPageState extends State<LinePatternsPage>
   }
 
   void _tick(Duration elapsed) {
-    // A slow sweep of about one pixel's worth of world space at the
-    // default distance, so lines cross pixel boundaries visibly slowly.
-    _driftOffset = 0.6 * math.sin(elapsed.inMilliseconds / 4000);
-    unawaited(_updateCamera());
+    final dt = (elapsed - _elapsed).inMicroseconds / 1e6;
+    _elapsed = elapsed;
+    if (_drift) {
+      // A slow sweep of about one pixel's worth of world space at the
+      // default distance, so lines cross pixel boundaries visibly slowly.
+      _driftOffset = 0.6 * math.sin(elapsed.inMilliseconds / 4000);
+      unawaited(_updateCamera());
+    }
+    if (_effects.isNotEmpty) {
+      _pulseDistance += _pulseSpeed * dt;
+      unawaited(_updatePulses());
+    }
+  }
+
+  // Distance in world units the pulse has travelled since it started.
+  double _pulseDistance = 0;
+
+  /// Moves the pulse along every path at [_pulseSpeed] world units per
+  /// second, wrapping past the path's end with room for the band to
+  /// leave it.
+  Future<void> _updatePulses() async {
+    for (final (batch, length) in _paths) {
+      if (_effects.isEmpty) {
+        await batch.setPulse(null);
+        continue;
+      }
+      final cycle = length + 2 * _pulseLength;
+      final along = _pulseDistance % cycle - _pulseLength;
+      await batch.setPulse(
+        LinePulse(
+          center: along / length,
+          halfLength: _pulseLength / length,
+          color: const LinearRgba(1, 0.85, 0.2),
+          colorMix: _effects.contains(PulseEffect.color) ? 1 : 0,
+          opacity: _effects.contains(PulseEffect.opacity) ? 0.15 : 1,
+          widthScale: _effects.contains(PulseEffect.width) ? 3 : 1,
+          glowPixels: _effects.contains(PulseEffect.glow) ? 5 : 0,
+        ),
+      );
+    }
+  }
+
+  void _updateTicker() {
+    final run = _drift || _effects.isNotEmpty;
+    if (run && !_ticker.isActive) {
+      _elapsed = Duration.zero;
+      unawaited(_ticker.start());
+    } else if (!run && _ticker.isActive) {
+      _ticker.stop();
+    }
   }
 
   Future<void> _updateCamera() async {
@@ -199,6 +281,7 @@ class _LinePatternsPageState extends State<LinePatternsPage>
       await batch.destroy();
     }
     _batches.clear();
+    _paths.clear();
     for (final box in _boxes) {
       await viewer.destroyAsset(box);
     }
@@ -232,8 +315,13 @@ class _LinePatternsPageState extends State<LinePatternsPage>
       _boxes.add(asset);
     }
 
-    for (final batch in pattern.build()) {
-      _batches.add(await lines.createBatch(batch.segments, batch.style));
+    for (final batch in pattern.build(
+      BuildOptions(progressByCount: _progressByCount),
+    )) {
+      final drawn = await lines.createBatch(batch.segments, batch.style);
+      _batches.add(drawn);
+      final length = batch.pathLength;
+      if (length != null) _paths.add((drawn, length));
     }
   }
 
@@ -267,10 +355,8 @@ class _LinePatternsPageState extends State<LinePatternsPage>
 
   void _toggleDrift(bool on) {
     setState(() => _drift = on);
-    if (on) {
-      unawaited(_ticker.start());
-    } else {
-      _ticker.stop();
+    _updateTicker();
+    if (!on) {
       _driftOffset = 0;
       unawaited(_updateCamera());
     }
@@ -354,6 +440,23 @@ class _LinePatternsPageState extends State<LinePatternsPage>
                   _rebuild();
                 },
                 onDrift: _toggleDrift,
+                effects: _effects,
+                onEffect: (effect, on) {
+                  setState(
+                    () => on ? _effects.add(effect) : _effects.remove(effect),
+                  );
+                  _updateTicker();
+                  unawaited(_updatePulses());
+                },
+                pulseSpeed: _pulseSpeed,
+                onPulseSpeed: (v) => setState(() => _pulseSpeed = v),
+                pulseLength: _pulseLength,
+                onPulseLength: (v) => setState(() => _pulseLength = v),
+                progressByCount: _progressByCount,
+                onProgressByCount: (v) {
+                  setState(() => _progressByCount = v);
+                  _rebuild();
+                },
                 perspectiveWidth: _perspectiveWidth,
                 onPerspectiveWidth: (v) {
                   setState(() => _perspectiveWidth = v);
@@ -417,6 +520,14 @@ class _ControlPanel extends StatelessWidget {
     required this.drift,
     required this.onPattern,
     required this.onDrift,
+    required this.effects,
+    required this.onEffect,
+    required this.pulseSpeed,
+    required this.onPulseSpeed,
+    required this.pulseLength,
+    required this.onPulseLength,
+    required this.progressByCount,
+    required this.onProgressByCount,
     required this.perspectiveWidth,
     required this.onPerspectiveWidth,
     required this.supersample,
@@ -429,6 +540,14 @@ class _ControlPanel extends StatelessWidget {
   final bool drift;
   final ValueChanged<int> onPattern;
   final ValueChanged<bool> onDrift;
+  final Set<PulseEffect> effects;
+  final void Function(PulseEffect effect, bool on) onEffect;
+  final double pulseSpeed;
+  final ValueChanged<double> onPulseSpeed;
+  final double pulseLength;
+  final ValueChanged<double> onPulseLength;
+  final bool progressByCount;
+  final ValueChanged<bool> onProgressByCount;
   final bool perspectiveWidth;
   final ValueChanged<bool> onPerspectiveWidth;
   final int supersample;
@@ -488,6 +607,41 @@ class _ControlPanel extends StatelessWidget {
           'Output scale over Flutter\'s pixel ratio: 1.25 / 2 = 0.625 on '
           'a 1.25 Linux display. Widens the ramp to 1/s.',
           style: text.bodySmall,
+        ),
+        const Divider(),
+        Text('Pulse', style: text.titleSmall),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final effect in PulseEffect.values)
+              FilterChip(
+                label: Text(effect.name),
+                selected: effects.contains(effect),
+                onSelected: (on) => onEffect(effect, on),
+              ),
+          ],
+        ),
+        Text(
+          'Speed ${pulseSpeed.toStringAsFixed(0)} units/s',
+          style: text.bodySmall,
+        ),
+        Slider(min: 5, max: 200, value: pulseSpeed, onChanged: onPulseSpeed),
+        Text(
+          'Band ${pulseLength.toStringAsFixed(0)} units',
+          style: text.bodySmall,
+        ),
+        Slider(min: 2, max: 60, value: pulseLength, onChanged: onPulseLength),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: const Text('Progress by segment count'),
+          subtitle: const Text(
+            'Gives each segment equal progress, to compare against '
+            'progress by distance',
+          ),
+          value: progressByCount,
+          onChanged: onProgressByCount,
         ),
         const Divider(),
         Text('Pattern', style: text.titleSmall),

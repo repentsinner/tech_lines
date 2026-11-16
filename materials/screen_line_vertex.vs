@@ -27,6 +27,10 @@
 // width draws one, would otherwise be moved past the camera and vanish.
 #define SCREEN_LINE_MAX_DEPTH_SHIFT 0.25
 
+// Glow lengths past the line's edge the quad reaches, where the glow's
+// exponential falloff has dropped below 2 percent.
+#define SCREEN_LINE_GLOW_EXTENT 4.0
+
 // Keeps a trimmed endpoint strictly in front of the near plane.
 #define SCREEN_LINE_NEAR_MARGIN 1e-5
 
@@ -98,6 +102,15 @@ void screenLineVertex(inout MaterialVertexInputs material) {
     float ramp = (abs(dir.x) + abs(dir.y)) * rampScale;
     float reach = halfDrawn + 0.5 * ramp;
 
+    // A pulse can widen the line and add a glow, so the quad reaches far
+    // enough to hold both. The depth bias keeps to the line's own reach,
+    // so a pulse does not move the line in depth.
+    float biasReach = reach;
+    if (materialParams.pulseHalfLength > 0.0) {
+        reach = halfDrawn * max(1.0, materialParams.pulseWidthScale) +
+            0.5 * ramp + SCREEN_LINE_GLOW_EXTENT * materialParams.pulseGlowPixels;
+    }
+
     // Butt caps stop at the endpoint, so the quad only needs to cover the
     // anti-aliasing ramp past it. Round and square caps reach a half width
     // further.
@@ -123,7 +136,7 @@ void screenLineVertex(inout MaterialVertexInputs material) {
     // parallel rays, so the corner moves along view z instead.
     vec4 view = getViewFromWorldMatrix() * world;
     float pixelSize = 2.0 / (res.y * clipFromView[1][1]);
-    float slopeShift = materialParams.depthSlopeBias * reach * pixelSize;
+    float slopeShift = materialParams.depthSlopeBias * biasReach * pixelSize;
     if (orthographic) {
         view.z += abs(view.z) * materialParams.depthBias + slopeShift;
     } else {

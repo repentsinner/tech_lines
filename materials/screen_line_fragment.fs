@@ -22,18 +22,50 @@ float screenLineOverlap(float lo, float hi, float x, float ramp) {
     return max(min(hi, x + h) - max(lo, x - h), 0.0) / ramp;
 }
 
-float screenLineCoverage() {
+// How much of the pulse applies at this fragment: 1 at its centre, falling
+// smoothly to 0 at half its length either side, in progress units. A pulse
+// with no length is off.
+float screenLineBand() {
+    float halfLength = materialParams.pulseHalfLength;
+    if (halfLength <= 0.0) {
+        return 0.0;
+    }
+    float d = abs(variable_lineProgress.x - materialParams.pulseCenter);
+    return 1.0 - smoothstep(0.0, 1.0, d / halfLength);
+}
+
+// The fragment's distance in target pixels from the line's axis: from the
+// segment for round caps, across it otherwise.
+float screenLineAxisDistance() {
+    vec2 local = variable_lineFrame.xy / variable_lineFrame.z;
+    float along = local.x;
+    float across = abs(local.y);
+    if (materialParams.capStyle == SCREEN_LINE_CAP_ROUND) {
+        float lengthPx = variable_lineShape.x;
+        float outside = along - clamp(along, 0.0, lengthPx);
+        return length(vec2(outside, across));
+    }
+    return across;
+}
+
+// The half width drawn at this fragment: the line's own, scaled towards
+// the pulse's width scale inside the band.
+float screenLineHalfWidth(float band) {
+    float halfDrawn = variable_lineFrame.w / variable_lineFrame.z;
+    return halfDrawn * mix(1.0, materialParams.pulseWidthScale, band);
+}
+
+float screenLineCoverage(float band) {
     vec2 local = variable_lineFrame.xy / variable_lineFrame.z;
     float along = local.x;
     float across = abs(local.y);
     float lengthPx = variable_lineShape.x;
-    float halfDrawn = variable_lineFrame.w / variable_lineFrame.z;
+    float halfDrawn = screenLineHalfWidth(band);
     float ramp = variable_lineShape.w;
 
     float coverage;
     if (materialParams.capStyle == SCREEN_LINE_CAP_ROUND) {
-        float outside = along - clamp(along, 0.0, lengthPx);
-        float distance = length(vec2(outside, across));
+        float distance = screenLineAxisDistance();
         coverage = screenLineOverlap(-halfDrawn, halfDrawn, distance, ramp);
     } else {
         float extent = materialParams.capStyle == SCREEN_LINE_CAP_SQUARE
@@ -54,8 +86,19 @@ float screenLineCoverage() {
     return coverage * variable_lineProgress.y / variable_lineFrame.z;
 }
 
+// Alpha of the pulse's glow at this fragment: an exponential falloff over
+// the glow's length from the line's edge, scaled by the band.
+float screenLineGlow(float band) {
+    float glow = materialParams.pulseGlowPixels;
+    if (glow <= 0.0 || band <= 0.0) {
+        return 0.0;
+    }
+    float outside = max(screenLineAxisDistance() - screenLineHalfWidth(band), 0.0);
+    return band * exp(-outside / glow) * materialParams.opacity;
+}
+
 // Linear RGB of the fragment and its alpha before coverage.
-vec4 screenLineColor() {
+vec4 screenLineColor(float band) {
     vec4 vertexColor = getColor();
     float mixAmount = materialParams.vertexColorMix;
     vec3 rgb = mix(materialParams.lineColor.rgb, vertexColor.rgb, mixAmount);
@@ -76,6 +119,10 @@ vec4 screenLineColor() {
             rgb *= materialParams.progressBoost;
         }
     }
+
+    // The pulse tints and fades the line inside its band.
+    rgb = mix(rgb, materialParams.pulseColor.rgb, band * materialParams.pulseColor.a);
+    alpha *= mix(1.0, materialParams.pulseOpacity, band);
 
     return vec4(rgb, alpha);
 }
