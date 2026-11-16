@@ -8,7 +8,6 @@ import 'filamat_header.dart';
 import 'line_packer.dart';
 import 'line_segments.dart';
 import 'line_style.dart';
-import 'version.dart';
 
 final _log = Logger('ScreenLineRenderer');
 
@@ -72,7 +71,11 @@ abstract final class ScreenLineParams {
 /// Pass it to [ScreenLineRenderer.createBatch] to draw a batch in the
 /// style. The renderer that loaded it owns its materials and destroys them
 /// in [ScreenLineRenderer.dispose].
-final class ConsumerStyle {
+///
+/// A consumer's tests may implement it, to hand a style to a renderer
+/// they mock. A renderer draws only in a style its own
+/// [ScreenLineRenderer.loadStyle] returned.
+class ConsumerStyle {
   ConsumerStyle._(this.name, this._body, this._edge);
 
   /// The style's name, as `tools/compile_style.sh` was given it.
@@ -163,7 +166,7 @@ class ScreenLineRenderer {
   ///
   /// Throws [FilamatVersionException] when either material was compiled
   /// for a different Filament release, and [StyleTemplateException] when
-  /// either was built from another package release's templates, the two
+  /// either was built from other line material templates, the two
   /// are each other's pass, or they belong to different styles.
   Future<ConsumerStyle> loadStyle({
     required String bodyAsset,
@@ -184,8 +187,8 @@ class ScreenLineRenderer {
     if (edgeName != name) {
       throw StyleTemplateException(
         assetPath: edgeAsset,
-        found: techLinesVersion,
-        expected: techLinesVersion,
+        found: styleTemplateRevision,
+        expected: styleTemplateRevision,
         message:
             'is the edge material of style "$edgeName", loaded with the '
             'body material of style "$name".',
@@ -281,11 +284,21 @@ class ScreenLineRenderer {
   /// Uploads segments [packLineSegments] already packed, which lets a
   /// caller pack a large batch on another isolate, and adds them to the
   /// scene drawn in [style], and in [consumerStyle] when one is given.
+  ///
+  /// Throws an [ArgumentError] when [consumerStyle] is not one this
+  /// renderer's [loadStyle] returned.
   Future<LineBatch> createPackedBatch(
     PackedLines packed,
     LineStyle style, {
     ConsumerStyle? consumerStyle,
   }) async {
+    if (consumerStyle != null && !_styles.contains(consumerStyle)) {
+      throw ArgumentError.value(
+        consumerStyle.name,
+        'consumerStyle',
+        'was not loaded by this renderer',
+      );
+    }
     final body = consumerStyle?._body ?? _body;
     final edge = consumerStyle?._edge ?? _edge;
     final passes = <_Pass>[];

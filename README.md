@@ -143,9 +143,10 @@ line's width or shape, as the pulse does, belongs in the package.
        radial_fade radial_fade.fs assets/styles
    ```
 
-   Rebuild every style whenever the application moves to another
-   release of `tech_lines`. `loadStyle` throws `StyleTemplateException`
-   for a style built from another release's materials.
+   Rebuild the styles when the application moves to a release of
+   `tech_lines` whose line materials changed. `loadStyle` throws
+   `StyleTemplateException` for a style built from other line materials,
+   and names the release whose `compile_style.sh` to use.
 
 4. Load the style once, draw batches in it, and set its parameters on
    each batch. A style's parameters start at zero:
@@ -160,7 +161,9 @@ line's width or shape, as the pulse does, belongs in the package.
    await batch.setStyleParameter('fadeRadius', [60]);
    ```
 
-The renderer owns the styles it loads and destroys them in `dispose`.
+The renderer owns the styles it loads and destroys them in `dispose`, and
+draws only in those. An application's own tests can implement
+`ConsumerStyle` to hand a style to a renderer they mock.
 
 ## Development
 

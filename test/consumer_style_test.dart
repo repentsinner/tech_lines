@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:crypto/crypto.dart';
 import 'package:tech_lines/tech_lines.dart';
 import 'package:test/test.dart';
 
@@ -32,8 +33,8 @@ Uint8List _blob({int? version, String? name}) {
   return bytes.toBytes();
 }
 
-String _stamp(String release, String style, String pass) =>
-    'tech_lines $release style:$style pass:$pass';
+String _stamp(String revision, String style, String pass) =>
+    'tech_lines templates:$revision style:$style pass:$pass';
 
 /// Names in a material's `parameters` block.
 Set<String> _declaredParameters(String matPath) {
@@ -70,16 +71,16 @@ void main() {
   });
 
   group('checkConsumerStyle', () {
-    test('accepts a style built from this release and returns its name', () {
-      final bytes = _blob(name: _stamp(techLinesVersion, 'fade', 'body'));
+    test('accepts a style built from these templates and returns its name', () {
+      final bytes = _blob(name: _stamp(styleTemplateRevision, 'fade', 'body'));
       expect(
         checkConsumerStyle(bytes, 'fade_body.filamat', ConsumerStylePass.body),
         'fade',
       );
     });
 
-    test('rejects a style built from another release, naming both', () {
-      final bytes = _blob(name: _stamp('0.0.1', 'fade', 'edge'));
+    test('rejects a style built from other templates, naming this release', () {
+      final bytes = _blob(name: _stamp('000000000000', 'fade', 'edge'));
       expect(
         () => checkConsumerStyle(
           bytes,
@@ -88,13 +89,13 @@ void main() {
         ),
         throwsA(
           isA<StyleTemplateException>()
-              .having((e) => e.found, 'found', '0.0.1')
-              .having((e) => e.expected, 'expected', techLinesVersion)
+              .having((e) => e.found, 'found', '000000000000')
+              .having((e) => e.expected, 'expected', styleTemplateRevision)
               .having(
                 (e) => e.toString(),
                 'message',
                 allOf(
-                  contains('0.0.1'),
+                  contains('000000000000'),
                   contains(techLinesVersion),
                   contains('fade_edge.filamat'),
                 ),
@@ -114,7 +115,7 @@ void main() {
     });
 
     test('rejects a material built for the other pass', () {
-      final bytes = _blob(name: _stamp(techLinesVersion, 'fade', 'edge'));
+      final bytes = _blob(name: _stamp(styleTemplateRevision, 'fade', 'edge'));
       expect(
         () => checkConsumerStyle(bytes, 'x.filamat', ConsumerStylePass.body),
         throwsA(isA<StyleTemplateException>()),
@@ -124,7 +125,7 @@ void main() {
     test('rejects a material for another Filament release first', () {
       final bytes = _blob(
         version: expectedFilamatVersion - 1,
-        name: _stamp(techLinesVersion, 'fade', 'body'),
+        name: _stamp(styleTemplateRevision, 'fade', 'body'),
       );
       expect(
         () => checkConsumerStyle(bytes, 'x.filamat', ConsumerStylePass.body),
@@ -170,6 +171,22 @@ void main() {
     expect(
       ScreenLineParams.all,
       _declaredParameters('materials/screen_line_edge.mat'),
+    );
+  });
+
+  test('styleTemplateRevision is the hash of the line material templates', () {
+    final sources = BytesBuilder();
+    for (final name in styleTemplateSources) {
+      sources.add(File('materials/$name').readAsBytesSync());
+    }
+    final digest = sha256.convert(sources.toBytes()).toString();
+
+    expect(
+      styleTemplateRevision,
+      digest.substring(0, styleTemplateRevision.length),
+      reason:
+          'the templates changed; set styleTemplateRevision to '
+          '${digest.substring(0, 12)}',
     );
   });
 

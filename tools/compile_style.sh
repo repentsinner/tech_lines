@@ -10,8 +10,11 @@
 #            { type : float, name : fadeRadius, precision : high }
 #   OUT_DIR  receives NAME_body.filamat and NAME_edge.filamat
 #
-# Each material is named "tech_lines <release> style:NAME pass:<pass>", which
-# ScreenLineRenderer.loadStyle checks. Set MATC to use a matc other than the
+# Each material is named "tech_lines templates:<revision> style:NAME
+# pass:<pass>", which ScreenLineRenderer.loadStyle checks. The revision is
+# the first 12 hex digits of the SHA-256 of the line material templates, so
+# it changes only when they do; styleTemplateRevision in
+# lib/src/consumer_style.dart holds the same value. Set MATC to use a matc other than the
 # one tools/install_matc.sh installs; it must come from the Filament release
 # in tools/filament_version.
 set -euo pipefail
@@ -69,7 +72,16 @@ if [ -n "$params" ]; then
     fi
 fi
 
-release="$(sed -n 's/^version: *//p' "$ROOT/pubspec.yaml")"
+# The order matches styleTemplateSources in lib/src/consumer_style.dart.
+templates=(screen_line_vertex.vs screen_line_fragment.fs \
+    screen_line_body.mat screen_line_edge.mat)
+if command -v sha256sum >/dev/null 2>&1; then
+    hash=(sha256sum)
+else
+    hash=(shasum -a 256)
+fi
+revision="$(cd "$ROOT/materials" && cat "${templates[@]}" | "${hash[@]}" |
+    cut -c1-12)"
 MATC="${MATC:-$("$ROOT/tools/install_matc.sh")}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
@@ -83,7 +95,7 @@ cp "$style" "$TMP/screen_line_style.fs"
 for pass in body edge; do
     src="$ROOT/materials/screen_line_$pass.mat"
     mat="$TMP/${name}_$pass.mat"
-    stamp="tech_lines $release style:$name pass:$pass"
+    stamp="tech_lines templates:$revision style:$name pass:$pass"
     awk -v stamp="$stamp" -v entries="$entries" '
         !named && /^ *name *: *ScreenLine[A-Za-z]*, *$/ {
             sub(/name *: *ScreenLine[A-Za-z]*/, "name : \"" stamp "\"")

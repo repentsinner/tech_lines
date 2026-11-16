@@ -36,6 +36,27 @@ void main() {
     }
   });
 
+  test(
+    'stamps the templates\' revision, which a release leaves alone',
+    () async {
+      final result = await _compile([
+        'identity',
+        'test/styles/identity.fs',
+        out.path,
+      ]);
+      expect(result.exitCode, 0, reason: '${result.stdout}${result.stderr}');
+
+      // The release automation bumps the version after a merge, so a stamp
+      // that held it would leave every committed style blob stale.
+      expect(
+        readFilamatName(
+          File('${out.path}/identity_edge.filamat').readAsBytesSync(),
+        ),
+        'tech_lines templates:$styleTemplateRevision style:identity pass:edge',
+      );
+    },
+  );
+
   test('builds a style that declares no parameters', () async {
     final result = await _compile([
       'identity',
