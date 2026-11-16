@@ -3,7 +3,8 @@
 This app draws line patterns chosen to expose line-rendering defects:
 width, sub-pixel fade, angle-dependent aliasing, moiré, shimmer under a
 slow pan, z-fighting on faces, lines piercing solids, near-plane spikes,
-translucency and polyline corners.
+translucency and polyline corners. One pattern draws a ground grid in
+a consumer style that fades it toward the edge of its patch.
 
 ## Run the example
 

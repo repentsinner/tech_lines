@@ -6,7 +6,13 @@ import 'package:vector_math/vector_math_64.dart';
 
 /// One batch of a pattern: its segments and how they draw.
 class PatternBatch {
-  PatternBatch(this.segments, this.style, {this.pathLength});
+  PatternBatch(
+    this.segments,
+    this.style, {
+    this.pathLength,
+    this.consumerStyle,
+    this.styleParameters = const {},
+  });
 
   final LineSegments segments;
   final LineStyle style;
@@ -14,7 +20,18 @@ class PatternBatch {
   /// Length of the path in world units when [segments] carry progress
   /// along it, so a pulse can travel it; null for a batch with no path.
   final double? pathLength;
+
+  /// Name of the consumer style in `example/styles/` the batch draws in,
+  /// or null for the built-in style.
+  final String? consumerStyle;
+
+  /// Values of the consumer style's own parameters, by name.
+  final Map<String, List<double>> styleParameters;
 }
+
+/// Consumer styles in `example/styles/`, which
+/// `tools/compile_materials.sh` builds into `assets/styles/`.
+const consumerStyles = ['radial_fade'];
 
 /// How a pattern builds its batches.
 class BuildOptions {
@@ -340,6 +357,51 @@ final patterns = <LinePattern>[
         PatternBatch(
           _segments(tangent),
           const LineStyle(widthPixels: 1, color: _cyan),
+        ),
+      ];
+    },
+  ),
+  LinePattern(
+    name: 'Consumer style',
+    description:
+        'A ground grid in the radial_fade consumer style, which fades each '
+        'line per pixel toward the edge of the patch. Every line should '
+        'fade smoothly, with no step where the opaque middle meets the '
+        'faded rest, and a pulse glow should fade with its line.',
+    build: (_) {
+      const half = 60.0;
+      const step = 4.0;
+      const lines = 30;
+      // Each line runs progress 0 to 1 across the patch, start then end,
+      // so a pulse sweeps every line at once.
+      const segmentCount = 2 * (lines + 1);
+      final progress = Float32List(2 * segmentCount);
+      for (var i = 0; i < progress.length; i += 2) {
+        progress[i + 1] = 1;
+      }
+      final grid = _segments([
+        for (var i = 0; i <= lines; i++)
+          (
+            Vector3(-half, -half + i * step, 0),
+            Vector3(half, -half + i * step, 0),
+          ),
+        for (var i = 0; i <= lines; i++)
+          (
+            Vector3(-half + i * step, -half, 0),
+            Vector3(-half + i * step, half, 0),
+          ),
+      ]);
+
+      return [
+        PatternBatch(
+          LineSegments(endpoints: grid.endpoints, progress: progress),
+          const LineStyle(widthPixels: 1.5, color: _cyan),
+          pathLength: 2 * half,
+          consumerStyle: 'radial_fade',
+          styleParameters: const {
+            'fadeCenter': [0, 0, 0],
+            'fadeRadius': [half],
+          },
         ),
       ];
     },

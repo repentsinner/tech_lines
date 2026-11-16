@@ -48,6 +48,10 @@ jobs:
       - name: Materials match their sources
         run: ./tools/check_materials.sh
 
+      # Runs tools/compile_style.sh, with the matc the step above installed.
+      - name: Style compiler
+        run: dart test --run-skipped -t matc
+
   example:
     runs-on: ubuntu-latest
     defaults:

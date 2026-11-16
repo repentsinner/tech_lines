@@ -5,8 +5,10 @@
 /// that writes depth and a blended edge pass for its anti-aliased rim.
 library;
 
+export 'src/consumer_style.dart';
 export 'src/filamat_header.dart';
 export 'src/line_packer.dart';
 export 'src/line_segments.dart';
 export 'src/line_style.dart';
 export 'src/screen_line_renderer.dart';
+export 'src/version.dart';

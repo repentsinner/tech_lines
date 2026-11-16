@@ -22,3 +22,8 @@ flywheel:
     - path: pubspec.yaml
       pattern: '^version: .*'
       replacement: 'version: ${version}'
+    # compile_style.sh stamps a consumer style with this release, and
+    # ScreenLineRenderer.loadStyle compares the stamp with it.
+    - path: lib/src/version.dart
+      pattern: "^const String techLinesVersion = '.*';"
+      replacement: "const String techLinesVersion = '${version}';"

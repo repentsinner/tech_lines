@@ -3,3 +3,8 @@ tags:
     # Renders headless through Filament and captures the target, so it
     # needs a GPU driver. Skipped by default; run with --run-skipped -t gpu.
     skip: "Needs a GPU — run with: dart test --run-skipped -t gpu"
+  matc:
+    # Runs tools/compile_style.sh, which needs the matc that
+    # tools/install_matc.sh downloads. Skipped by default; run with
+    # --run-skipped -t matc.
+    skip: "Needs matc — run with: dart test --run-skipped -t matc"
