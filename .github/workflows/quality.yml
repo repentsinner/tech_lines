@@ -1,0 +1,69 @@
+name: Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # thermion_dart's build hook compiles its native library with clang
+      # against these headers, even for tests that never render.
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libc++-dev libc++abi-dev libgl-dev libegl-dev libgles-dev libdrm-dev libgbm-dev zlib1g-dev libudev-dev
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.50.0
+          cache: true
+
+      - name: Resolve
+        run: dart pub get
+
+      - name: Format
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Analyze
+        run: dart analyze --fatal-infos
+
+      # The gpu tag is skipped by default: hosted runners have no GPU.
+      - name: Test
+        run: dart test
+
+      - name: Materials match their sources
+        run: ./tools/check_materials.sh
+
+  example:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: example
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: 3.50.0
+          cache: true
+
+      - name: Resolve
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --fatal-infos

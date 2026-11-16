@@ -1,0 +1,32 @@
+name: tech_lines_example
+description: Draws pathological line patterns to evaluate tech_lines.
+publish_to: none
+version: 0.1.0
+
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  material_ui: ^1.11.0
+  thermion_flutter: ^0.7.0
+  tech_lines:
+    path: ..
+  vector_math: ^2.4.3
+
+dev_dependencies:
+  flutter_lints: ^6.0.0
+
+# The fork fixes the Linux texture layout thermion_flutter presents
+# through; see the package's pubspec.
+dependency_overrides:
+  thermion_dart:
+    git:
+      url: https://github.com/repentsinner/thermion.git
+      ref: 90024d1734b2bb82964595fde821404b00396cac
+      path: thermion_dart
+
+flutter:
+  uses-material-design: true

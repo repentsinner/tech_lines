@@ -1,0 +1,33 @@
+name: tech_lines
+description: Screen-space lines of constant pixel width in a Thermion scene, with analytic anti-aliasing.
+version: 0.1.0
+repository: https://github.com/repentsinner/tech_lines
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  logging: ^1.0.0
+  thermion_dart: ^0.7.0
+  vector_math: ^2.4.3
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.24.0
+
+# Development only, so consumers resolve hosted thermion_dart. The fork
+# commit matches the Filament release the committed .filamat blobs are
+# compiled for (tools/compile_materials.sh), and fixes the Linux texture
+# layout the example presents through.
+dependency_overrides:
+  thermion_dart:
+    git:
+      url: https://github.com/repentsinner/thermion.git
+      ref: 90024d1734b2bb82964595fde821404b00396cac
+      path: thermion_dart
+
+# Flutter serves these as packages/tech_lines/assets/materials/…; a
+# pure-Dart caller loads the same files from the package root.
+flutter:
+  assets:
+    - assets/materials/
