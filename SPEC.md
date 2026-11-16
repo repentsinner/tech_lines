@@ -161,7 +161,7 @@ by distance rather than by segment count.
 
 ## Consumer styles §spec:consumer-styles
 
-*Status: not started*
+*Status: complete*
 
 A consumer style changes a line's colour and opacity per fragment from
 data the consumer owns. The package keeps the geometry, coverage, passes
@@ -295,9 +295,9 @@ faces at incidences up to the slope factor's limit, present scale,
 perspective width, progress and the pulse. A batch with the identity
 consumer style shall match the built-in materials pixel for pixel, and
 a style that fades with world position shall leave no gap or double
-draw where the body and edge passes meet (§spec:consumer-styles). The suite shall also render
-`tech_vis`'s reference screen geometry and record its error
-(§road:reference-geometry-pixel-test).
+draw where the body and edge passes meet (§spec:consumer-styles). The
+suite shall also render `tech_vis`'s reference screen geometry and
+record its error (§road:reference-geometry-pixel-test).
 
 The tests need a GPU driver, so they run under the skipped-by-default
 `gpu` tag.

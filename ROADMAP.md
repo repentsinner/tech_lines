@@ -13,21 +13,6 @@ reference vectors as test data so the package takes no dependency on
 geometry and reports its error, and the error is within `tech_vis`'s
 tolerance.
 
-## Consumer styles §road:consumer-styles
-
-### Style hook §road:style-hook
-
-Add the `styleLine` hook to the line materials' fragment stage, with
-`tools/compile_style.sh`, `ScreenLineRenderer.loadStyle` and
-`LineBatch.setStyleParameter`, in `materials/`, `tools/` and
-`lib/src/screen_line_renderer.dart`. §spec:consumer-styles. Closes
-section.
-
-**Verify:** In `dart test --run-skipped -t gpu`, the identity style
-matches the built-in materials pixel for pixel, and a style that fades
-with world position leaves no gap or double draw at the body and edge
-seam. The example draws a batch with a consumer style.
-
 ## Large batches §road:large-batches
 
 ### Compact line buffers §road:compact-line-buffers

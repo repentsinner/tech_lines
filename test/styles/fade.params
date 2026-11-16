@@ -1,0 +1,3 @@
+// Parameters of fade.fs, as matc parameter entries.
+{ type : float3, name : fadeCenter, precision : high },
+{ type : float, name : fadeRadius, precision : high }

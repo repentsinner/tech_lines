@@ -63,24 +63,25 @@ vertex {
 
 fragment {
     #include "screen_line_fragment.fs"
+    #include "screen_line_style.fs"
 
     void material(inout MaterialInputs material) {
         prepareMaterial(material);
         float band = screenLineBand();
-        vec4 color = screenLineColor(band);
-        float alpha = screenLineCoverage(band) * color.a;
+        ScreenLineStyle style = screenLineStyled(band);
+        float alpha = screenLineCoverage(band) * style.alpha;
         // An always-on-top line draws wholly here, so that render
         // priority alone orders it against other on-top lines.
         bool bodyOwns = !materialParams.edgeDrawsAll &&
             alpha >= SCREEN_LINE_FULL_COVERAGE;
         // The glow lies outside the line, where the body draws nothing,
         // and composites under the line's own coverage.
-        float glow = screenLineGlow(band) * (1.0 - alpha);
+        float glow = screenLineGlow(band) * style.glowScale * (1.0 - alpha);
         float total = alpha + glow;
         if (bodyOwns || total <= 0.0) {
             discard;
         }
-        vec3 rgb = color.rgb * alpha + materialParams.pulseColor.rgb * glow;
+        vec3 rgb = style.rgb * alpha + materialParams.pulseColor.rgb * glow;
         material.baseColor = vec4(rgb, total);
     }
 }

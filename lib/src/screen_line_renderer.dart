@@ -3,10 +3,12 @@ import 'dart:math' as math;
 import 'package:logging/logging.dart';
 import 'package:thermion_dart/thermion_dart.dart';
 
+import 'consumer_style.dart';
 import 'filamat_header.dart';
 import 'line_packer.dart';
 import 'line_segments.dart';
 import 'line_style.dart';
+import 'version.dart';
 
 final _log = Logger('ScreenLineRenderer');
 
@@ -36,6 +38,48 @@ abstract final class ScreenLineParams {
   static const pulseOpacity = 'pulseOpacity';
   static const pulseWidthScale = 'pulseWidthScale';
   static const pulseGlowPixels = 'pulseGlowPixels';
+
+  /// Every name above. A consumer style's own parameters shall not reuse
+  /// one (§spec:consumer-styles).
+  static const all = {
+    lineColor,
+    opacity,
+    vertexColorMix,
+    pixelScale,
+    rampScale,
+    widthReferenceDepth,
+    capStyle,
+    depthBias,
+    depthSlopeBias,
+    dash,
+    progressCursor,
+    progressWindowEnd,
+    progressDim,
+    progressBoost,
+    edgeDrawsAll,
+    pulseCenter,
+    pulseHalfLength,
+    pulseColor,
+    pulseOpacity,
+    pulseWidthScale,
+    pulseGlowPixels,
+  };
+}
+
+/// A consumer style's two materials, loaded by
+/// [ScreenLineRenderer.loadStyle] (§spec:consumer-styles).
+///
+/// Pass it to [ScreenLineRenderer.createBatch] to draw a batch in the
+/// style. The renderer that loaded it owns its materials and destroys them
+/// in [ScreenLineRenderer.dispose].
+final class ConsumerStyle {
+  ConsumerStyle._(this.name, this._body, this._edge);
+
+  /// The style's name, as `tools/compile_style.sh` was given it.
+  final String name;
+
+  final Material<dynamic> _body;
+  final Material<dynamic> _edge;
 }
 
 /// Fraction of its distance from the camera that a line moves towards it,
@@ -62,6 +106,7 @@ const _progressOff = -1.0;
 class ScreenLineRenderer {
   ScreenLineRenderer._(
     this._viewer,
+    this._loadAsset,
     this._body,
     this._edge,
     this._pixelScale,
@@ -104,6 +149,7 @@ class ScreenLineRenderer {
 
     return ScreenLineRenderer._(
       viewer,
+      loadAsset,
       body,
       edge,
       pixelScale,
@@ -112,9 +158,54 @@ class ScreenLineRenderer {
     );
   }
 
+  /// Loads a consumer style's materials, which `tools/compile_style.sh`
+  /// built, through the renderer's asset loader (§spec:consumer-styles).
+  ///
+  /// Throws [FilamatVersionException] when either material was compiled
+  /// for a different Filament release, and [StyleTemplateException] when
+  /// either was built from another package release's templates, the two
+  /// are each other's pass, or they belong to different styles.
+  Future<ConsumerStyle> loadStyle({
+    required String bodyAsset,
+    required String edgeAsset,
+  }) async {
+    final bodyBytes = await _loadAsset(bodyAsset);
+    final edgeBytes = await _loadAsset(edgeAsset);
+    final name = checkConsumerStyle(
+      bodyBytes,
+      bodyAsset,
+      ConsumerStylePass.body,
+    );
+    final edgeName = checkConsumerStyle(
+      edgeBytes,
+      edgeAsset,
+      ConsumerStylePass.edge,
+    );
+    if (edgeName != name) {
+      throw StyleTemplateException(
+        assetPath: edgeAsset,
+        found: techLinesVersion,
+        expected: techLinesVersion,
+        message:
+            'is the edge material of style "$edgeName", loaded with the '
+            'body material of style "$name".',
+      );
+    }
+    final style = ConsumerStyle._(
+      name,
+      await FilamentApp.instance!.createMaterial(bodyBytes),
+      await FilamentApp.instance!.createMaterial(edgeBytes),
+    );
+    _styles.add(style);
+
+    return style;
+  }
+
   final ThermionViewer _viewer;
+  final AssetLoader _loadAsset;
   final Material<dynamic> _body;
   final Material<dynamic> _edge;
+  final List<ConsumerStyle> _styles = [];
   double _pixelScale;
 
   /// Relative depth bias every new batch draws with.
@@ -174,19 +265,29 @@ class ScreenLineRenderer {
   }
 
   /// Uploads [segments] and adds them to the scene drawn in [style].
-  Future<LineBatch> createBatch(LineSegments segments, LineStyle style) =>
-      createPackedBatch(
-        packLineSegments(segments, widthPixels: style.widthPixels),
-        style,
-      );
+  ///
+  /// With a [consumerStyle] from [loadStyle], every pass runs that style's
+  /// `styleLine` on each fragment; without one, the built-in style.
+  Future<LineBatch> createBatch(
+    LineSegments segments,
+    LineStyle style, {
+    ConsumerStyle? consumerStyle,
+  }) => createPackedBatch(
+    packLineSegments(segments, widthPixels: style.widthPixels),
+    style,
+    consumerStyle: consumerStyle,
+  );
 
   /// Uploads segments [packLineSegments] already packed, which lets a
   /// caller pack a large batch on another isolate, and adds them to the
-  /// scene drawn in [style].
+  /// scene drawn in [style], and in [consumerStyle] when one is given.
   Future<LineBatch> createPackedBatch(
     PackedLines packed,
-    LineStyle style,
-  ) async {
+    LineStyle style, {
+    ConsumerStyle? consumerStyle,
+  }) async {
+    final body = consumerStyle?._body ?? _body;
+    final edge = consumerStyle?._edge ?? _edge;
     final passes = <_Pass>[];
 
     // The first pass uploads the buffers. Every later pass is a Thermion
@@ -220,14 +321,14 @@ class ScreenLineRenderer {
     }
 
     if (style.depthMode != LineDepthMode.onTop) {
-      await addPass(_body, _PassKind.body);
+      await addPass(body, _PassKind.body);
     }
-    await addPass(_edge, _PassKind.edge);
+    await addPass(edge, _PassKind.edge);
     if (style.depthMode == LineDepthMode.hiddenStyled) {
-      await addPass(_edge, _PassKind.hidden);
+      await addPass(edge, _PassKind.hidden);
     }
 
-    final batch = LineBatch._(this, passes, style, packed);
+    final batch = LineBatch._(this, passes, style, packed, consumerStyle);
     _batches.add(batch);
 
     return batch;
@@ -308,13 +409,19 @@ class ScreenLineRenderer {
   static double _passOpacity(_PassKind kind, LineStyle style, double opacity) =>
       kind == _PassKind.hidden ? opacity * style.hiddenOpacity : opacity;
 
-  /// Destroys every batch and both materials.
+  /// Destroys every batch, both materials, and every consumer style's
+  /// materials.
   Future<void> dispose() async {
     for (final batch in _batches.toList()) {
       await batch.destroy();
     }
     await _body.destroy();
     await _edge.destroy();
+    for (final style in _styles) {
+      await style._body.destroy();
+      await style._edge.destroy();
+    }
+    _styles.clear();
   }
 }
 
@@ -330,9 +437,18 @@ final class _Pass {
 
 /// One uploaded set of segments and the passes that draw it.
 class LineBatch {
-  LineBatch._(this._renderer, this._passes, this._style, PackedLines packed)
-    : vertexCount = packed.vertexCount,
+  LineBatch._(
+    this._renderer,
+    this._passes,
+    this._style,
+    PackedLines packed,
+    this.consumerStyle,
+  ) : vertexCount = packed.vertexCount,
       hasVertexColors = packed.hasVertexColors;
+
+  /// The consumer style the batch draws in, or null for the built-in
+  /// style.
+  final ConsumerStyle? consumerStyle;
 
   /// Vertex buffer slot of the per-vertex colour. Thermion lays a
   /// geometry's buffers out as position, tangents (only with normals),
@@ -480,6 +596,40 @@ class LineBatch {
       ScreenLineParams.pulseGlowPixels,
       pulse?.glowPixels ?? 0,
     );
+  }
+
+  /// Sets the consumer style's own parameter [name] on every pass, as a
+  /// `float` to a `float4` by the length of [value].
+  ///
+  /// The style's parameters start at zero. Throws an [ArgumentError] when
+  /// [name] is a parameter the package sets itself or [value] holds no
+  /// floats or more than four, and a [StateError] when the batch draws in
+  /// the built-in style.
+  Future<void> setStyleParameter(String name, List<double> value) async {
+    checkStyleParameter(name, value);
+    if (consumerStyle == null) {
+      throw StateError(
+        'the batch draws in the built-in style, which has no parameter '
+        '"$name"; create it with a consumerStyle',
+      );
+    }
+    if (_destroyed) return;
+    for (final p in _passes) {
+      final i = p.instance;
+      switch (value) {
+        case [final x]:
+          await i.setParameterFloat(name, x);
+        case [final x, final y]:
+          await i.setParameterFloat2(name, x, y);
+        case [final x, final y, final z]:
+          await i.setParameterFloat3(name, x, y, z);
+        case [final x, final y, final z, final w]:
+          await i.setParameterFloat4(name, x, y, z, w);
+        case _:
+          // checkStyleParameter admits one to four floats only.
+          throw StateError('unreachable: ${value.length} floats');
+      }
+    }
   }
 
   /// Sets the model transform applied to every segment.

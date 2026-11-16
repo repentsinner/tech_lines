@@ -62,14 +62,15 @@ vertex {
 
 fragment {
     #include "screen_line_fragment.fs"
+    #include "screen_line_style.fs"
 
     void material(inout MaterialInputs material) {
         prepareMaterial(material);
         float band = screenLineBand();
-        vec4 color = screenLineColor(band);
-        if (screenLineCoverage(band) * color.a < SCREEN_LINE_FULL_COVERAGE) {
+        ScreenLineStyle style = screenLineStyled(band);
+        if (screenLineCoverage(band) * style.alpha < SCREEN_LINE_FULL_COVERAGE) {
             discard;
         }
-        material.baseColor = vec4(color.rgb, 1.0);
+        material.baseColor = vec4(style.rgb, 1.0);
     }
 }

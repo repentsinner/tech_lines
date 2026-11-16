@@ -13,6 +13,35 @@
 #define SCREEN_LINE_CAP_ROUND 1
 #define SCREEN_LINE_CAP_SQUARE 2
 
+// The style hook (§spec:consumer-styles). Its signature and these two
+// structs are public API; everything else in this file is private.
+
+// What a style reads about the fragment.
+struct ScreenLineFragment {
+    // World position in the caller's world coordinates, on the line's
+    // quad, so it includes the depth bias.
+    highp vec3 worldPosition;
+    // Progress at the fragment, interpolated along its segment.
+    highp float progress;
+    // How much of the pulse applies here, 0 to 1.
+    float band;
+};
+
+// What a style may change: the colour before coverage, and a scale on the
+// pulse glow.
+struct ScreenLineStyle {
+    // Linear RGB.
+    vec3 rgb;
+    // Alpha before coverage, clamped to [0, 1] after the style runs.
+    float alpha;
+    // Scale on the pulse glow, 1 unless the style changes it.
+    float glowScale;
+};
+
+// Defined by screen_line_style.fs, which the material includes after this
+// file: the package's identity style, or a consumer's.
+void styleLine(inout ScreenLineStyle style, ScreenLineFragment fragment);
+
 // Coverage of the interval [lo, hi] by a pixel footprint `ramp` wide
 // centred at x: their overlap as a fraction of the footprint. It
 // integrates to hi - lo for any ramp, so a line thinner than its ramp
@@ -125,4 +154,19 @@ vec4 screenLineColor(float band) {
     alpha *= mix(1.0, materialParams.pulseOpacity, band);
 
     return vec4(rgb, alpha);
+}
+
+// The fragment's colour after the style: the built-in colour, then
+// styleLine. Both passes call this with the same band, so they agree on
+// the alpha and split the fragments exactly.
+ScreenLineStyle screenLineStyled(float band) {
+    vec4 color = screenLineColor(band);
+    ScreenLineStyle style = ScreenLineStyle(color.rgb, color.a, 1.0);
+    // Filament shades in a world space moved to the camera for precision;
+    // the style reads the caller's.
+    highp vec3 world = (getUserWorldFromWorldMatrix() *
+        vec4(getWorldPosition(), 1.0)).xyz;
+    styleLine(style, ScreenLineFragment(world, variable_lineProgress.x, band));
+    style.alpha = clamp(style.alpha, 0.0, 1.0);
+    return style;
 }

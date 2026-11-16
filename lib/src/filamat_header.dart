@@ -86,6 +86,41 @@ int readFilamatVersion(Uint8List bytes) {
   return ByteData.sublistView(bytes, 12, 16).getUint32(0, Endian.little);
 }
 
+/// The chunk that holds a material's name, NUL-terminated.
+const String _nameChunkName = 'MAT_NAME';
+
+/// The chunk name (8 bytes) plus its uint32 size, ahead of every payload.
+const int _chunkHeaderLength = 12;
+
+/// Reads the material name from a `.filamat` package.
+///
+/// Throws [FilamatFormatException] when [bytes] holds no name chunk.
+String readFilamatName(Uint8List bytes) {
+  final data = ByteData.sublistView(bytes);
+  var offset = 0;
+  while (offset + _chunkHeaderLength <= bytes.lengthInBytes) {
+    final type = String.fromCharCodes(
+      bytes.sublist(offset, offset + 8).reversed,
+    );
+    final size = data.getUint32(offset + 8, Endian.little);
+    final payload = offset + _chunkHeaderLength;
+    if (type == _nameChunkName) {
+      final limit = payload + size > bytes.lengthInBytes
+          ? bytes.lengthInBytes
+          : payload + size;
+      final nul = bytes.indexOf(0, payload);
+      final end = nul < 0 || nul > limit ? limit : nul;
+
+      return String.fromCharCodes(bytes.sublist(payload, end));
+    }
+    offset = payload + size;
+  }
+  throw const FilamatFormatException(
+    'package has no $_nameChunkName chunk — it is not a material package, or '
+    'it is truncated',
+  );
+}
+
 /// Throws unless [bytes] is a material package this build's Filament accepts.
 ///
 /// [assetPath] names the source in the error, since a caller loading several
