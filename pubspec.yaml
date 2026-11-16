@@ -1,6 +1,6 @@
 name: tech_lines
 description: Screen-space lines of constant pixel width in a Thermion scene, with analytic anti-aliasing.
-version: 0.2.0
+version: 0.3.0
 repository: https://github.com/repentsinner/tech_lines
 
 environment:

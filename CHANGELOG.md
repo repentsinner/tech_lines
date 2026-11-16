@@ -1,3 +1,11 @@
+# [0.3.0](https://github.com/repentsinner/tech_lines/compare/v0.2.0...v0.3.0) (2026-11-16)
+
+
+### Features
+
+* **example:** draw a ground grid in a consumer style ([133d3f5](https://github.com/repentsinner/tech_lines/commit/133d3f530ffea02d307e3e9ab4a41d74bbded9f6))
+* let a consumer style a line's colour and opacity per fragment ([e117f45](https://github.com/repentsinner/tech_lines/commit/e117f459869096774b8f5ae45461bd045e10affa))
+
 # [0.2.0](https://github.com/repentsinner/tech_lines/compare/v0.1.0...v0.2.0) (2026-11-16)
 
 

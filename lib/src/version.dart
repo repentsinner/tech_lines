@@ -4,4 +4,4 @@
 /// templates built it, and `ScreenLineRenderer.loadStyle` compares the
 /// stamp with this. The release automation rewrites both on every release,
 /// and a test fails when they disagree.
-const String techLinesVersion = '0.2.0';
+const String techLinesVersion = '0.3.0';
