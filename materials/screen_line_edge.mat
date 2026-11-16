@@ -1,0 +1,74 @@
+// Edge pass of the screen-space line: every fragment the body pass drops,
+// which is the anti-aliased rim of an opaque line and the whole of a
+// translucent or sub-pixel one. It blends with premultiplied alpha, tests
+// depth and writes none. An always-on-top line draws
+// every fragment here.
+
+material {
+    name : ScreenLineEdge,
+
+    // Shared by both passes; the Dart side sets every one of them.
+    parameters : [
+        { type : float4, name : lineColor, precision : high },
+        { type : float, name : opacity },
+        { type : float, name : vertexColorMix },
+        { type : float, name : pixelScale, precision : high },
+        { type : float, name : rampScale, precision : high },
+        { type : float, name : widthReferenceDepth, precision : high },
+        { type : int, name : capStyle },
+        { type : float, name : depthBias, precision : high },
+        { type : float, name : depthSlopeBias, precision : high },
+        { type : float2, name : dash, precision : high },
+        { type : float, name : progressCursor, precision : high },
+        { type : float, name : progressWindowEnd, precision : high },
+        { type : float, name : progressDim },
+        { type : float, name : progressBoost },
+        { type : bool, name : edgeDrawsAll }
+    ],
+
+    variables : [
+        lineFrame,
+        lineShape,
+        lineProgress
+    ],
+
+    requires : [ position, uv0, uv1, custom0, color ],
+
+    shadingModel : unlit,
+    blending : transparent,
+    depthWrite : false,
+    depthCulling : true,
+    culling : none,
+    flipUV : false,
+    vertexDomain : object,
+
+    variantFilter : [
+        skinning, shadowReceiver, vsm, directionalLighting, fog, ssr, stereo
+    ]
+}
+
+vertex {
+    #include "screen_line_vertex.vs"
+
+    void materialVertex(inout MaterialVertexInputs material) {
+        screenLineVertex(material);
+    }
+}
+
+fragment {
+    #include "screen_line_fragment.fs"
+
+    void material(inout MaterialInputs material) {
+        prepareMaterial(material);
+        vec4 color = screenLineColor();
+        float alpha = screenLineCoverage() * color.a;
+        // An always-on-top line draws wholly here, so that render
+        // priority alone orders it against other on-top lines.
+        bool bodyOwns = !materialParams.edgeDrawsAll &&
+            alpha >= SCREEN_LINE_FULL_COVERAGE;
+        if (bodyOwns || alpha <= 0.0) {
+            discard;
+        }
+        material.baseColor = vec4(color.rgb * alpha, alpha);
+    }
+}
