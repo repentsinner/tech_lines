@@ -1,0 +1,24 @@
+# Flywheel release configuration — single stream, one version.
+#
+# `release: production` cuts a release on every push to main. `auto_merge`
+# lists the conventional-commit types that merge without review. `feat`,
+# `fix`, `perf` and every `!` variant bump the version, so they gate on a
+# human: a reviewed PR cuts every release, and the auto-merged changes
+# since the last release ship with it.
+#
+# `chore` covers dependency bumps, so Dependabot's updates can land
+# unreviewed once the App private key is also registered in the
+# Dependabot secret store. Withhold that registration to keep the review
+# gate.
+flywheel:
+  streams:
+    - name: main-line
+      branches:
+        - name: main
+          release: production
+          auto_merge: [chore, docs, style, test, ci, build, refactor]
+
+  release_files:
+    - path: pubspec.yaml
+      pattern: '^version: .*'
+      replacement: 'version: ${version}'
