@@ -30,3 +30,6 @@ dependency_overrides:
 
 flutter:
   uses-material-design: true
+  # Consumer styles that tools/compile_materials.sh builds from styles/.
+  assets:
+    - assets/styles/

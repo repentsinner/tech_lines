@@ -77,6 +77,9 @@ class _LinePatternsPageState extends State<LinePatternsPage>
   ScreenLineRenderer? _lines;
   final List<LineBatch> _batches = [];
 
+  // Consumer styles by name, loaded once with the renderer, which owns them.
+  final Map<String, ConsumerStyle> _styles = {};
+
   // Batches that carry a path, with its length in world units.
   final List<(LineBatch, double)> _paths = [];
 
@@ -149,6 +152,12 @@ class _LinePatternsPageState extends State<LinePatternsPage>
           );
         },
       );
+      for (final name in consumerStyles) {
+        _styles[name] = await lines.loadStyle(
+          bodyAsset: 'assets/styles/${name}_body.filamat',
+          edgeAsset: 'assets/styles/${name}_edge.filamat',
+        );
+      }
       setState(() {
         _viewer = viewer;
         _lines = lines;
@@ -318,7 +327,15 @@ class _LinePatternsPageState extends State<LinePatternsPage>
     for (final batch in pattern.build(
       BuildOptions(progressByCount: _progressByCount),
     )) {
-      final drawn = await lines.createBatch(batch.segments, batch.style);
+      final styleName = batch.consumerStyle;
+      final drawn = await lines.createBatch(
+        batch.segments,
+        batch.style,
+        consumerStyle: styleName == null ? null : _styles[styleName]!,
+      );
+      for (final MapEntry(:key, :value) in batch.styleParameters.entries) {
+        await drawn.setStyleParameter(key, value);
+      }
       _batches.add(drawn);
       final length = batch.pathLength;
       if (length != null) _paths.add((drawn, length));
