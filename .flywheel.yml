@@ -16,6 +16,9 @@ flywheel:
       branches:
         - name: main
           release: production
+          # Release (.github/workflows/release.yml) attaches the example
+          # builds to the draft, then publishes it.
+          release_as_draft: true
           auto_merge: [chore, docs, style, test, ci, build, refactor]
 
   release_files:
