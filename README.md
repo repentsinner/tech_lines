@@ -95,11 +95,80 @@ On the renderer, `setPresentScale` widens the anti-aliasing ramp when
 the platform resamples the finished frame, and `setPerspectiveWidth`
 draws widths that shrink with depth for comparison.
 
+### Consumer styles
+
+A consumer style changes a line's colour and opacity per fragment from
+data the application owns, such as a fade toward the edge of a ground
+patch. The package keeps the geometry, coverage, passes and depth, and
+runs the style inside them, so a faded fragment still draws exactly
+once. A style changes colour and opacity only. An effect that changes a
+line's width or shape, as the pulse does, belongs in the package.
+
+1. Write the style in GLSL. It defines one function, which may change
+   the fragment's colour, its alpha before coverage, and a scale on the
+   pulse glow:
+
+   ```glsl
+   void styleLine(inout ScreenLineStyle style, ScreenLineFragment fragment) {
+       float reach = distance(fragment.worldPosition.xy,
+           materialParams.fadeCenter.xy) / materialParams.fadeRadius;
+       float fade = 1.0 - smoothstep(0.0, 1.0, reach);
+       style.alpha *= fade;
+       style.glowScale *= fade;
+   }
+   ```
+
+   `fragment.worldPosition` is in the caller's world coordinates. It
+   includes the depth bias, which moves it toward the camera, so a fade
+   over a plane measures within the plane. `fragment.progress` and
+   `fragment.band` carry the progress and the pulse band at the
+   fragment.
+
+2. List the style's own parameters in a file, as `matc` parameter
+   entries. Their names can't reuse the package's own, which
+   `ScreenLineParams.all` lists:
+
+   ```text
+   { type : float3, name : fadeCenter, precision : high },
+   { type : float, name : fadeRadius, precision : high }
+   ```
+
+3. Build the style with this package's `tools/compile_style.sh`, which
+   writes a body and an edge material. In an application, the
+   package's directory is the `rootUri` of `tech_lines` in
+   `.dart_tool/package_config.json`:
+
+   ```sh
+   tools/compile_style.sh --params radial_fade.params \
+       radial_fade radial_fade.fs assets/styles
+   ```
+
+   Rebuild every style whenever the application moves to another
+   release of `tech_lines`. `loadStyle` throws `StyleTemplateException`
+   for a style built from another release's materials.
+
+4. Load the style once, draw batches in it, and set its parameters on
+   each batch. A style's parameters start at zero:
+
+   ```dart
+   final fade = await lines.loadStyle(
+     bodyAsset: 'assets/styles/radial_fade_body.filamat',
+     edgeAsset: 'assets/styles/radial_fade_edge.filamat',
+   );
+   final batch = await lines.createBatch(segments, style, consumerStyle: fade);
+   await batch.setStyleParameter('fadeCenter', [0, 0, 0]);
+   await batch.setStyleParameter('fadeRadius', [60]);
+   ```
+
+The renderer owns the styles it loads and destroys them in `dispose`.
+
 ## Development
 
 The `.mat` sources live in `materials/` and compile into
 `assets/materials/` with the `matc` from the Filament release in
-`tools/filament_version`. The script downloads that `matc` on first use:
+`tools/filament_version`. The same script builds the example's consumer
+styles from `example/styles/` into `example/assets/styles/`. It
+downloads that `matc` on first use:
 
 ```sh
 ./tools/compile_materials.sh
@@ -108,18 +177,21 @@ The `.mat` sources live in `materials/` and compile into
 `tools/check_materials.sh` fails when a committed blob no longer matches
 its source.
 
-The unit tests run with `dart test`. The pixel tests render headless
-through Filament, capture the render target and measure width, coverage
-and depth. They need a GPU driver, so the `gpu` tag skips them by
-default:
+The unit tests run with `dart test`. The tests of `tools/compile_style.sh`
+need `matc`, so the `matc` tag skips them by default. The pixel tests
+render headless through Filament, capture the render target and measure
+width, coverage, depth and consumer styles. They need a GPU driver, so the
+`gpu` tag skips them by default:
 
 ```sh
+dart test --run-skipped -t matc
 dart test --run-skipped -t gpu
 ```
 
 `example/` is a Flutter app that draws line patterns chosen to expose
 line-rendering defects, with controls for the present scale,
-perspective widths and the pulse. See its README.
+perspective widths and the pulse. One pattern draws a ground grid in a
+consumer style. See its README.
 
 SPEC.md specifies the rendering (§spec:screen-space-lines), and
 ROADMAP.md lists the work ahead.
