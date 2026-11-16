@@ -13,6 +13,12 @@ import 'gpu_harness.dart';
 
 const _white = LinearRgba(1, 1, 1, 1);
 
+/// A style no renderer loaded, as a consumer's tests might make.
+class _StyleDouble implements ConsumerStyle {
+  @override
+  String get name => 'double';
+}
+
 /// The horizontal test line: x 28 to 228 on row 128.5, 4 px wide, so a
 /// column's sum is its alpha times 4.
 const _lineY = 128.5;
@@ -280,6 +286,13 @@ void main() {
         throwsA(isA<StyleTemplateException>()),
       );
     });
+  });
+
+  test('createBatch rejects a style the renderer did not load', () {
+    expect(
+      scene.lines.createBatch(line(), butt, consumerStyle: _StyleDouble()),
+      throwsArgumentError,
+    );
   });
 
   group('setStyleParameter', () {

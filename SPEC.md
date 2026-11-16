@@ -207,17 +207,31 @@ material from the package's templates, with the package's `matc`
 parameter list. The package owns the material block, its own
 parameters and the pass settings.
 
+`tools/compile_style.sh` stamps each material with the templates'
+revision: the first 12 hex digits of the SHA-256 of the line material
+sources, which `styleTemplateRevision` holds. The revision changes only
+when the templates do.
+
 `ScreenLineRenderer.loadStyle` loads a style's two materials through the
 caller's asset loader and returns a handle that `createBatch` and
 `createPackedBatch` accept. It shall reject a blob compiled for another
 Filament release with `FilamatVersionException`. It shall reject a blob
-built from another package release's templates with an exception that
-names both releases.
+built from other templates with an exception that names both revisions
+and this release. `createPackedBatch` shall reject a style the renderer
+did not load. A consumer's tests may implement `ConsumerStyle` to hand a
+style to a renderer they mock.
 
 The function signature and its two structs are public API, versioned
 with the package. The vertex layout and the stage code stay private
 (§spec:segment-data), so a change to them reaches a consumer as a
-rebuild of its style with no change to its source.
+rebuild of its style with no change to its source. A release that leaves
+the templates alone leaves every built style valid.
+
+*Why the revision and not the release*: the release automation bumps the
+version in a commit after the merge. A stamp holding the release would
+leave every style blob built before that commit stale, the committed
+example styles included, and would make every consumer rebuild its styles
+on every release.
 
 A style changes colour and opacity only. An effect that moves a line's
 quad, width or depth, as the pulse does, belongs in the package.
