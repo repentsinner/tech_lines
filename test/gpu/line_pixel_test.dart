@@ -401,6 +401,96 @@ void main() {
     });
   });
 
+  group('pulse', () {
+    // A horizontal line from x 28 to 228 whose progress runs 0 to 1 by
+    // arc length: two segments, the first a quarter of the length.
+    Future<LineBatch> pulsedLine() => scene.lines.createBatch(
+      LineSegments(
+        endpoints: Float32List.fromList([
+          ...segment(Vector3(28, 128.5, 0), Vector3(78, 128.5, 0)),
+          ...segment(Vector3(78, 128.5, 0), Vector3(228, 128.5, 0)),
+        ]),
+        progress: Float32List.fromList([0, 0.25, 0.25, 1]),
+      ),
+      const LineStyle(
+        widthPixels: 3,
+        color: LinearRgba(0, 0, 0),
+        cap: LineCap.butt,
+      ),
+    );
+
+    test('colors the band around its center by arc length', () async {
+      final batch = await pulsedLine();
+      await batch.setPulse(const LinePulse(center: 0.5, halfLength: 0.05));
+      final frame = await scene.capture();
+      await batch.destroy();
+
+      // Progress 0.5 is x = 128, the line's geometric middle, though it
+      // lies in the second of two segments.
+      expect(frame.max(126, 120, 131, 137), greaterThan(0.95));
+      // Outside the band the line keeps its black.
+      expect(frame.max(40, 120, 100, 137), 0);
+      expect(frame.max(150, 120, 220, 137), 0);
+    });
+
+    test('widens the line in the band', () async {
+      final batch = await pulsedLine();
+      await batch.setColor(const LinearRgba(1, 1, 1));
+      await batch.setPulse(
+        const LinePulse(center: 0.5, halfLength: 0.1, widthScale: 3),
+      );
+      final frame = await scene.capture();
+      await batch.destroy();
+
+      expect(frame.sum(128, 100, 129, 156), closeTo(9, 0.3));
+      expect(frame.sum(60, 100, 61, 156), closeTo(3, 0.1));
+    });
+
+    test('adds a glow outside the line in the band', () async {
+      final batch = await pulsedLine();
+      await batch.setPulse(
+        const LinePulse(
+          center: 0.5,
+          halfLength: 0.1,
+          colorMix: 0,
+          glowPixels: 4,
+        ),
+      );
+      final frame = await scene.capture();
+      await batch.destroy();
+
+      // Three pixels past the line's edge, in the band and out of it.
+      expect(frame.max(128, 133, 129, 134), greaterThan(0.05));
+      expect(frame.max(60, 133, 61, 134), 0);
+    });
+
+    test('fades the band to an opacity', () async {
+      final batch = await pulsedLine();
+      await batch.setColor(const LinearRgba(1, 1, 1));
+      await batch.setPulse(
+        const LinePulse(center: 0.5, halfLength: 0.1, opacity: 0.25),
+      );
+      final frame = await scene.capture();
+      await batch.destroy();
+
+      expect(frame.max(127, 120, 130, 137), closeTo(0.25, 0.02));
+      expect(frame.max(60, 120, 61, 137), closeTo(1, 0.01));
+    });
+
+    test('a null pulse draws the line unchanged', () async {
+      final batch = await pulsedLine();
+      await batch.setColor(const LinearRgba(1, 1, 1));
+      await batch.setPulse(
+        const LinePulse(center: 0.5, halfLength: 0.1, widthScale: 3),
+      );
+      await batch.setPulse(null);
+      final frame = await scene.capture();
+      await batch.destroy();
+
+      expect(frame.sum(128, 100, 129, 156), closeTo(3, 0.1));
+    });
+  });
+
   group('progress and visibility', () {
     Future<LineBatch> progressLine() => scene.lines.createBatch(
       LineSegments(

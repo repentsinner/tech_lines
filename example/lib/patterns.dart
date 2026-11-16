@@ -6,10 +6,24 @@ import 'package:vector_math/vector_math_64.dart';
 
 /// One batch of a pattern: its segments and how they draw.
 class PatternBatch {
-  PatternBatch(this.segments, this.style);
+  PatternBatch(this.segments, this.style, {this.pathLength});
 
   final LineSegments segments;
   final LineStyle style;
+
+  /// Length of the path in world units when [segments] carry progress
+  /// along it, so a pulse can travel it; null for a batch with no path.
+  final double? pathLength;
+}
+
+/// How a pattern builds its batches.
+class BuildOptions {
+  const BuildOptions({this.progressByCount = false});
+
+  /// Gives every segment an equal share of progress instead of a share
+  /// proportional to its length, to show how a pulse then rushes through
+  /// long segments and crawls through runs of short ones.
+  final bool progressByCount;
 }
 
 /// Shapes a pattern can draw its lines against.
@@ -49,7 +63,7 @@ class LinePattern {
   /// What to look for, shown under the viewport.
   final String description;
 
-  final List<PatternBatch> Function() build;
+  final List<PatternBatch> Function(BuildOptions options) build;
   final List<PatternBox> boxes;
 }
 
@@ -78,12 +92,67 @@ LineSegments _segments(
 /// Every pattern, in the order the picker shows them.
 final patterns = <LinePattern>[
   LinePattern(
+    name: 'Toolpath',
+    description:
+        'A path of a dense spiral, a long straight, a zigzag of short moves '
+        'and a long diagonal, with progress by distance along it. Turn on '
+        'a pulse: it should travel at one speed through short and long '
+        'segments alike.',
+    build: (options) {
+      final points = <Vector3>[];
+      // A spiral of 600 short segments.
+      for (var i = 0; i <= 600; i++) {
+        final t = i / 600 * 6 * math.pi;
+        final r = 4 + t * 1.5;
+        points.add(Vector3(-35 + r * math.cos(t), 10 + r * math.sin(t), 0));
+      }
+      // One long straight move.
+      points.add(Vector3(55, 10, 0));
+      // A zigzag of 40 short moves.
+      for (var i = 1; i <= 40; i++) {
+        points.add(Vector3(55 - i * 1.2, i.isOdd ? -2 : -6, 0));
+      }
+      // One long diagonal back to the start of the spiral's row.
+      points.add(Vector3(-60, -40, 0));
+
+      final pairs = <(Vector3, Vector3)>[];
+      for (var i = 1; i < points.length; i++) {
+        pairs.add((points[i - 1], points[i]));
+      }
+      final lengths = [for (final (a, b) in pairs) (b - a).length];
+      final total = lengths.reduce((a, b) => a + b);
+      final progress = Float32List(pairs.length * 2);
+      var travelled = 0.0;
+      for (var i = 0; i < pairs.length; i++) {
+        final start = options.progressByCount
+            ? i / pairs.length
+            : travelled / total;
+        travelled += lengths[i];
+        final end = options.progressByCount
+            ? (i + 1) / pairs.length
+            : travelled / total;
+        progress
+          ..[i * 2] = start
+          ..[i * 2 + 1] = end;
+      }
+      final segments = _segments(pairs);
+
+      return [
+        PatternBatch(
+          LineSegments(endpoints: segments.endpoints, progress: progress),
+          const LineStyle(widthPixels: 1.5, color: _cyan),
+          pathLength: total,
+        ),
+      ];
+    },
+  ),
+  LinePattern(
     name: 'Width ladder',
     description:
         'Horizontal and slightly tilted lines from 0.25 to 4 px. Each rung '
         'should look as wide as its label says, and the rungs below 1 px '
         'should fade rather than break up.',
-    build: () {
+    build: (_) {
       const widths = [0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0];
       final pairs = <(Vector3, Vector3)>[];
       final perSegment = <double>[];
@@ -111,7 +180,7 @@ final patterns = <LinePattern>[
         'Lines every 3° around a centre at 1 px. Every spoke should have '
         'the same weight; near-horizontal and near-diagonal spokes show '
         'aliasing first.',
-    build: () => [
+    build: (_) => [
       PatternBatch(
         _segments([
           for (var a = 0; a < 360; a += 3)
@@ -137,7 +206,7 @@ final patterns = <LinePattern>[
     description:
         'Close parallel lines at 0.5 px. Zoom out until they approach one '
         'per pixel: they should merge into an even grey, not a moiré.',
-    build: () => [
+    build: (_) => [
       PatternBatch(
         _segments([
           for (var i = -100; i <= 100; i++)
@@ -153,7 +222,7 @@ final patterns = <LinePattern>[
         'A large grid on the ground, seen at a grazing angle. Orbit '
         'slowly: distant lines should thin and fade smoothly without '
         'crawling or breaking into dashes.',
-    build: () => [
+    build: (_) => [
       PatternBatch(
         _segments([
           for (var i = -50; i <= 50; i++) ...[
@@ -178,7 +247,7 @@ final patterns = <LinePattern>[
         Quaternion.axisAngle(Vector3(1, 1, 0).normalized(), 0.5),
       ),
     ],
-    build: () {
+    build: (_) {
       final box = Matrix4.compose(
         Vector3.zero(),
         Quaternion.axisAngle(Vector3(1, 1, 0).normalized(), 0.5),
@@ -244,7 +313,7 @@ final patterns = <LinePattern>[
         shade: 0.26,
       ),
     ],
-    build: () {
+    build: (_) {
       final through = <(Vector3, Vector3)>[];
       for (final cx in [-45.0, 0.0, 45.0]) {
         final c = Vector3(cx, 0, 0);
@@ -281,7 +350,7 @@ final patterns = <LinePattern>[
         'Long lines that pass behind the camera. Orbit and zoom in: no '
         'line should spike across the screen or vanish while part of it '
         'is in front of the camera.',
-    build: () => [
+    build: (_) => [
       PatternBatch(
         _segments([
           for (var i = -5; i <= 5; i++)
@@ -299,7 +368,7 @@ final patterns = <LinePattern>[
         'Crossing lines at half opacity. Each line should be uniformly '
         'translucent, including its core, and crossings should blend '
         'evenly.',
-    build: () => [
+    build: (_) => [
       PatternBatch(
         _segments([
           for (var i = -6; i <= 6; i++)
@@ -322,7 +391,7 @@ final patterns = <LinePattern>[
         'A zigzag with sharp turns and a spiral of 2,000 short segments, '
         'like a tessellated arc. Corners should have no notch and the '
         'spiral should read as one smooth line.',
-    build: () {
+    build: (_) {
       final zigzag = <(Vector3, Vector3)>[];
       for (var i = 0; i < 12; i++) {
         final a = Vector3(-60 + i * 5.0, i.isEven ? 10 : 30, 0);

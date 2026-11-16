@@ -23,7 +23,13 @@ material {
         { type : float, name : progressWindowEnd, precision : high },
         { type : float, name : progressDim },
         { type : float, name : progressBoost },
-        { type : bool, name : edgeDrawsAll }
+        { type : bool, name : edgeDrawsAll },
+        { type : float, name : pulseCenter, precision : high },
+        { type : float, name : pulseHalfLength, precision : high },
+        { type : float4, name : pulseColor },
+        { type : float, name : pulseOpacity },
+        { type : float, name : pulseWidthScale },
+        { type : float, name : pulseGlowPixels }
     ],
 
     variables : [
@@ -60,15 +66,21 @@ fragment {
 
     void material(inout MaterialInputs material) {
         prepareMaterial(material);
-        vec4 color = screenLineColor();
-        float alpha = screenLineCoverage() * color.a;
+        float band = screenLineBand();
+        vec4 color = screenLineColor(band);
+        float alpha = screenLineCoverage(band) * color.a;
         // An always-on-top line draws wholly here, so that render
         // priority alone orders it against other on-top lines.
         bool bodyOwns = !materialParams.edgeDrawsAll &&
             alpha >= SCREEN_LINE_FULL_COVERAGE;
-        if (bodyOwns || alpha <= 0.0) {
+        // The glow lies outside the line, where the body draws nothing,
+        // and composites under the line's own coverage.
+        float glow = screenLineGlow(band) * (1.0 - alpha);
+        float total = alpha + glow;
+        if (bodyOwns || total <= 0.0) {
             discard;
         }
-        material.baseColor = vec4(color.rgb * alpha, alpha);
+        vec3 rgb = color.rgb * alpha + materialParams.pulseColor.rgb * glow;
+        material.baseColor = vec4(rgb, total);
     }
 }

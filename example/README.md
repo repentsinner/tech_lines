@@ -14,7 +14,9 @@ flutter run -d linux --release
 ```
 
 To open on a pattern, pass its name or a prefix of it after `--`, for
-example `flutter run -d linux --release -- --pattern=lines`.
+example `flutter run -d linux --release -- --pattern=lines`. To start
+with pulse effects on, pass `--pulse=` with their names, for example
+`--pulse=color,glow`.
 
 On Linux, Flutter 3.50's embedder deadlocks on a Wayland window resize,
 so build with Flutter 3.47 there or leave the window at its first size.
@@ -22,6 +24,11 @@ so build with Flutter 3.47 there or leave the window at its first size.
 ## Controls
 
 - ← and → change the pattern.
+- Pulse sends a band along each path pattern, such as Toolpath, that
+  changes the lines' colour, opacity, width or glow. It moves at a
+  constant speed in world units, because each segment's progress is its
+  distance along the path. "Progress by segment count" gives every
+  segment equal progress instead, for comparison.
 - D starts and stops a slow sub-pixel pan.
 - P switches between screen-space widths and perspective widths, which
   foreshorten with depth and match the screen-space width at the orbit
