@@ -159,6 +159,85 @@ by distance rather than by segment count.
 - The depth bias uses the line's width without the pulse, so a pulse
   does not move the line in depth.
 
+## Consumer styles §spec:consumer-styles
+
+*Status: not started*
+
+A consumer style changes a line's colour and opacity per fragment from
+data the consumer owns. The package keeps the geometry, coverage, passes
+and depth, and runs the style inside them. A batch draws with the
+built-in style unless the caller gives it a consumer style.
+
+A style is a GLSL source that defines one function:
+
+```glsl
+void styleLine(inout ScreenLineStyle style, ScreenLineFragment fragment);
+```
+
+- `ScreenLineFragment` carries the fragment's world position, its
+  progress (§spec:progress-and-pulse) and the pulse band at it.
+- `ScreenLineStyle` carries the linear RGB, the alpha before coverage,
+  and a glow scale of 1. Its RGB and alpha arrive as the built-in style
+  computes them, with colour, opacity, progress and the pulse applied.
+- The style may change those three fields and no other state. Coverage,
+  dashes, the pass split and depth run after it in package code.
+- The built-in style is the identity function.
+
+The world position is in the caller's world coordinates, which the
+package converts from Filament's camera-relative shading space. It lies
+on the line's quad, so it includes the depth bias
+(§spec:passes-and-depth).
+
+Both passes and the `hiddenStyled` instance run the same style, so they
+compute the same alpha and the body and edge passes still split every
+fragment between them exactly. A style that lowers a fragment's alpha
+below full moves that fragment from the body pass to the edge pass,
+where it blends and writes no depth. A style shall not depend on which
+pass runs it. The edge pass scales the pulse glow by the glow scale, so
+a style that fades a line can fade its glow with it.
+
+A style may declare its own material parameters.
+`LineBatch.setStyleParameter` sets one by name, as a `float`, `float2`,
+`float3` or `float4`. A style parameter shall not reuse a name in
+`ScreenLineParams`.
+
+`tools/compile_style.sh` builds a style into a body material and an edge
+material from the package's templates, with the package's `matc`
+(§spec:materials). The consumer supplies the style source and its
+parameter list. The package owns the material block, its own
+parameters and the pass settings.
+
+`ScreenLineRenderer.loadStyle` loads a style's two materials through the
+caller's asset loader and returns a handle that `createBatch` and
+`createPackedBatch` accept. It shall reject a blob compiled for another
+Filament release with `FilamatVersionException`. It shall reject a blob
+built from another package release's templates with an exception that
+names both releases.
+
+The function signature and its two structs are public API, versioned
+with the package. The vertex layout and the stage code stay private
+(§spec:segment-data), so a change to them reaches a consumer as a
+rebuild of its style with no change to its source.
+
+A style changes colour and opacity only. An effect that moves a line's
+quad, width or depth, as the pulse does, belongs in the package.
+
+*Why*: an effect that carries a consumer's meaning, such as a fade over
+a ground patch, needs data the package has no vocabulary for
+(§req:constraints). A hook in the fragment stage gives the consumer that
+effect and keeps coverage and depth in one tested place.
+
+*Rejected*:
+
+- Replacing a batch's material outright. The consumer would
+  reimplement coverage and the pass split, and depend on the private
+  vertex layout that §road:compact-line-buffers and
+  §road:texture-read-line-segments change.
+- A built-in effect for each consumer's need, which brings application
+  vocabulary into the package.
+- Per-vertex alpha on segments the caller subdivides. The fade steps
+  along each line, and the vertex count grows with its smoothness.
+
 ## Segment data §spec:segment-data
 
 *Status: in progress*
@@ -213,7 +292,10 @@ there before any resample handling:
 
 Further tests cover depth against meshes in each depth mode, lines on
 faces at incidences up to the slope factor's limit, present scale,
-perspective width, progress and the pulse. The suite shall also render
+perspective width, progress and the pulse. A batch with the identity
+consumer style shall match the built-in materials pixel for pixel, and
+a style that fades with world position shall leave no gap or double
+draw where the body and edge passes meet (§spec:consumer-styles). The suite shall also render
 `tech_vis`'s reference screen geometry and record its error
 (§road:reference-geometry-pixel-test).
 
