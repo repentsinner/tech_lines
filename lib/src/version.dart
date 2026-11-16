@@ -4,4 +4,4 @@
 /// release's `tools/compile_style.sh` to rebuild it with. The release
 /// automation rewrites it on every release, and a test fails when it and
 /// pubspec.yaml disagree.
-const String techLinesVersion = '0.3.0';
+const String techLinesVersion = '0.3.1';

@@ -1,3 +1,10 @@
+## [0.3.1](https://github.com/repentsinner/tech_lines/compare/v0.3.0...v0.3.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* stamp consumer styles with their templates' revision ([a98b04a](https://github.com/repentsinner/tech_lines/commit/a98b04a8122b24bfcdae38aa61ef1f31826605b0))
+
 # [0.3.0](https://github.com/repentsinner/tech_lines/compare/v0.2.0...v0.3.0) (2026-11-16)
 
 
