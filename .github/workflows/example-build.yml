@@ -24,15 +24,15 @@ jobs:
           - os: ubuntu-latest
             platform: linux
             flutter: 3.47.9
-            asset: tech_lines_example-linux-x64.tar.gz
+            suffix: linux-x64.tar.gz
           - os: macos-latest
             platform: macos
             flutter: 3.50.0
-            asset: tech_lines_example-macos.zip
+            suffix: macos.zip
           - os: windows-latest
             platform: windows
             flutter: 3.50.0
-            asset: tech_lines_example-windows-x64.zip
+            suffix: windows-x64.zip
 
     runs-on: ${{ matrix.os }}
     timeout-minutes: 45
@@ -43,6 +43,20 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # A release names its builds by version, without the tag's leading v;
+      # a pull request build has no version, so it takes the short commit.
+      - name: Name the build
+        working-directory: ${{ github.workspace }}
+        env:
+          TAG: ${{ inputs.release-tag }}
+          SUFFIX: ${{ matrix.suffix }}
+          # On a pull request, github.sha is the merge commit; name the head.
+          COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          version="${TAG#v}"
+          version="${version:-${COMMIT::7}}"
+          echo "ASSET=tech_lines_example-$version-$SUFFIX" >> "$GITHUB_ENV"
 
       - uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
         with:
@@ -81,7 +95,7 @@ jobs:
 
       - name: Package Linux
         if: matrix.platform == 'linux'
-        run: tar -C build/linux/x64/release/bundle -czf "$GITHUB_WORKSPACE/${{ matrix.asset }}" .
+        run: tar -C build/linux/x64/release/bundle -czf "$GITHUB_WORKSPACE/$ASSET" .
 
       # -y keeps the framework symlinks inside the .app as symlinks.
       # Without it, zip stores each framework binary three times and breaks
@@ -89,7 +103,7 @@ jobs:
       - name: Package macOS
         if: matrix.platform == 'macos'
         working-directory: example/build/macos/Build/Products/Release
-        run: zip -r -y -q "$GITHUB_WORKSPACE/${{ matrix.asset }}" tech_lines_example.app
+        run: zip -r -y -q "$GITHUB_WORKSPACE/$ASSET" tech_lines_example.app
 
       - name: Package Windows
         if: matrix.platform == 'windows'
@@ -97,12 +111,12 @@ jobs:
         run: >-
           Compress-Archive
           -Path "build\windows\x64\runner\Release\*"
-          -DestinationPath "$env:GITHUB_WORKSPACE\${{ matrix.asset }}"
+          -DestinationPath "$env:GITHUB_WORKSPACE\$env:ASSET"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: ${{ matrix.asset }}
-          path: ${{ matrix.asset }}
+          name: ${{ env.ASSET }}
+          path: ${{ env.ASSET }}
           if-no-files-found: error
 
       - name: Attach to release
@@ -111,4 +125,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.release-tag }}
-        run: gh release upload "$TAG" --clobber "${{ matrix.asset }}" --repo "$GITHUB_REPOSITORY"
+        run: gh release upload "$TAG" --clobber "$ASSET" --repo "$GITHUB_REPOSITORY"
