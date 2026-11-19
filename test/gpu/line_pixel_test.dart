@@ -477,6 +477,28 @@ void main() {
       expect(frame.max(60, 120, 61, 137), closeTo(1, 0.01));
     });
 
+    test('fades each side of the band over its own share', () async {
+      final batch = await pulsedLine();
+      await batch.setColor(const LinearRgba(1, 1, 1));
+      await batch.setPulse(
+        const LinePulse(
+          center: 0.5,
+          halfLength: 0.1,
+          opacity: 0.25,
+          fadeBehind: 0,
+        ),
+      );
+      final frame = await scene.capture();
+      await batch.destroy();
+
+      // Three quarters of the half length behind the centre, the band
+      // holds its full strength; as far ahead, it has faded most of the
+      // way, as a band fading from its centre does.
+      expect(frame.max(113, 120, 114, 137), closeTo(0.25, 0.02));
+      expect(frame.max(143, 120, 144, 137), greaterThan(0.8));
+      expect(frame.max(60, 120, 61, 137), closeTo(1, 0.01));
+    });
+
     test('a null pulse draws the line unchanged', () async {
       final batch = await pulsedLine();
       await batch.setColor(const LinearRgba(1, 1, 1));

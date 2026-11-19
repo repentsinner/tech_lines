@@ -37,6 +37,7 @@ abstract final class ScreenLineParams {
   static const pulseOpacity = 'pulseOpacity';
   static const pulseWidthScale = 'pulseWidthScale';
   static const pulseGlowPixels = 'pulseGlowPixels';
+  static const pulseFade = 'pulseFade';
 
   /// Every name above. A consumer style's own parameters shall not reuse
   /// one (§spec:consumer-styles).
@@ -62,6 +63,7 @@ abstract final class ScreenLineParams {
     pulseOpacity,
     pulseWidthScale,
     pulseGlowPixels,
+    pulseFade,
   };
 }
 
@@ -608,6 +610,11 @@ class LineBatch {
     await instance.setParameterFloat(
       ScreenLineParams.pulseGlowPixels,
       pulse?.glowPixels ?? 0,
+    );
+    await instance.setParameterFloat2(
+      ScreenLineParams.pulseFade,
+      pulse?.fadeBehind ?? 1,
+      pulse?.fadeAhead ?? 1,
     );
   }
 

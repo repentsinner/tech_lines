@@ -29,7 +29,8 @@ material {
         { type : float4, name : pulseColor },
         { type : float, name : pulseOpacity },
         { type : float, name : pulseWidthScale },
-        { type : float, name : pulseGlowPixels }
+        { type : float, name : pulseGlowPixels },
+        { type : float2, name : pulseFade }
     ],
 
     variables : [

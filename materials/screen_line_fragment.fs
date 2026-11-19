@@ -51,16 +51,26 @@ float screenLineOverlap(float lo, float hi, float x, float ramp) {
     return max(min(hi, x + h) - max(lo, x - h), 0.0) / ramp;
 }
 
-// How much of the pulse applies at this fragment: 1 at its centre, falling
-// smoothly to 0 at half its length either side, in progress units. A pulse
-// with no length is off.
+// Smallest share of the half length a side of the pulse fades over. A side
+// given no fade still ends over a sliver of progress, not at a step.
+#define SCREEN_LINE_MIN_PULSE_FADE 0.001
+
+// How much of the pulse applies at this fragment, in progress units: 1
+// from its centre to where a side begins to fade, falling smoothly to 0 at
+// half its length. pulseFade holds the share of the half length each side
+// fades over, behind the centre and ahead of it. A pulse with no length is
+// off.
 float screenLineBand() {
     float halfLength = materialParams.pulseHalfLength;
     if (halfLength <= 0.0) {
         return 0.0;
     }
-    float d = abs(variable_lineProgress.x - materialParams.pulseCenter);
-    return 1.0 - smoothstep(0.0, 1.0, d / halfLength);
+    float offset = variable_lineProgress.x - materialParams.pulseCenter;
+    float fade = offset < 0.0
+        ? materialParams.pulseFade.x
+        : materialParams.pulseFade.y;
+    fade = clamp(fade, SCREEN_LINE_MIN_PULSE_FADE, 1.0);
+    return 1.0 - smoothstep(1.0 - fade, 1.0, abs(offset) / halfLength);
 }
 
 // The fragment's distance in target pixels from the line's axis: from the

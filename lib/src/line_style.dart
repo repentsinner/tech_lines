@@ -89,7 +89,8 @@ final class LineStyle {
 }
 
 /// A band that travels along a batch's progress, changing how the lines
-/// inside it draw.
+/// inside it draw. Each side of the band fades over its own share of the
+/// half length, so a band can end at full strength on one side.
 ///
 /// Progress comes from [LineSegments.progress] and interpolates across
 /// each segment, so with progress measured as distance along a path the
@@ -103,7 +104,13 @@ final class LinePulse {
     this.opacity = 1,
     this.widthScale = 1,
     this.glowPixels = 0,
-  });
+    this.fadeBehind = 1,
+    this.fadeAhead = 1,
+  }) : assert(
+         fadeBehind >= 0 && fadeBehind <= 1,
+         'fadeBehind must lie in [0, 1]',
+       ),
+       assert(fadeAhead >= 0 && fadeAhead <= 1, 'fadeAhead must lie in [0, 1]');
 
   /// Progress at the middle of the band.
   final double center;
@@ -126,4 +133,13 @@ final class LinePulse {
   /// Length in target pixels over which the glow falls to about a third
   /// of its strength past the line's edge; 0 draws no glow.
   final double glowPixels;
+
+  /// Share, 0 to 1, of [halfLength] over which the band fades behind its
+  /// centre, toward lower progress. The band holds full strength over the
+  /// rest, so 1 fades from the centre and 0 ends the band at full strength.
+  final double fadeBehind;
+
+  /// Share, 0 to 1, of [halfLength] over which the band fades ahead of its
+  /// centre, toward higher progress, as [fadeBehind] does behind it.
+  final double fadeAhead;
 }
