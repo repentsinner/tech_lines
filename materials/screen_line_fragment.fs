@@ -147,13 +147,15 @@ vec4 screenLineColor(float band) {
         materialParams.opacity;
 
     // Progress: a negative cursor disables it. Fragments behind the cursor
-    // dim; fragments between the cursor and the window end brighten.
+    // dim and fade; fragments between the cursor and the window end
+    // brighten.
     float cursor = materialParams.progressCursor;
     float windowEnd = materialParams.progressWindowEnd;
     float progress = variable_lineProgress.x;
     if (cursor >= 0.0) {
         if (progress < cursor) {
             rgb *= materialParams.progressDim;
+            alpha *= materialParams.progressFade;
         } else if (windowEnd >= 0.0 && progress > cursor && progress <= windowEnd) {
             rgb *= materialParams.progressBoost;
         }

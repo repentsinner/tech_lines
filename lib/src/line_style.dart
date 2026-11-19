@@ -47,6 +47,7 @@ final class LineStyle {
     this.priority = defaultPriority,
     this.progressDim = defaultProgressDim,
     this.progressBoost = defaultProgressBoost,
+    this.progressFade = 1,
   });
 
   /// Opacity of the hidden part of a [LineDepthMode.hiddenStyled] line,
@@ -86,6 +87,13 @@ final class LineStyle {
 
   final double progressDim;
   final double progressBoost;
+
+  /// Opacity factor behind the progress cursor, 1 to leave it opaque.
+  ///
+  /// [progressDim] darkens the line, which sets it back on a dark
+  /// background and forward on a light one. A fade blends the line toward
+  /// whatever lies behind it, so it recedes over any background.
+  final double progressFade;
 }
 
 /// A band that travels along a batch's progress, changing how the lines

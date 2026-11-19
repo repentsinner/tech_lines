@@ -30,6 +30,7 @@ abstract final class ScreenLineParams {
   static const progressWindowEnd = 'progressWindowEnd';
   static const progressDim = 'progressDim';
   static const progressBoost = 'progressBoost';
+  static const progressFade = 'progressFade';
   static const edgeDrawsAll = 'edgeDrawsAll';
   static const pulseCenter = 'pulseCenter';
   static const pulseHalfLength = 'pulseHalfLength';
@@ -56,6 +57,7 @@ abstract final class ScreenLineParams {
     progressWindowEnd,
     progressDim,
     progressBoost,
+    progressFade,
     edgeDrawsAll,
     pulseCenter,
     pulseHalfLength,
@@ -404,6 +406,10 @@ class ScreenLineRenderer {
     await instance.setParameterFloat(
       ScreenLineParams.progressBoost,
       style.progressBoost,
+    );
+    await instance.setParameterFloat(
+      ScreenLineParams.progressFade,
+      style.progressFade,
     );
 
     await LineBatch._writePulse(instance, null);

@@ -534,6 +534,31 @@ void main() {
       expect(frame.max(140, 120, 220, 136), closeTo(1, 0.01));
     });
 
+    test('fades what lies behind the cursor to an opacity', () async {
+      final batch = await scene.lines.createBatch(
+        LineSegments(
+          endpoints: Float32List.fromList(
+            segment(Vector3(28, 128.5, 0), Vector3(228, 128.5, 0)),
+          ),
+          progress: Float32List.fromList([0, 1]),
+        ),
+        const LineStyle(
+          widthPixels: 3,
+          color: _white,
+          cap: LineCap.butt,
+          progressDim: 1,
+          progressFade: 0.3,
+        ),
+      );
+      await batch.setProgress(0.5);
+      final frame = await scene.capture();
+      await batch.destroy();
+
+      // Over the black target the faded line reads at its opacity.
+      expect(frame.max(40, 120, 110, 136), closeTo(0.3, 0.01));
+      expect(frame.max(140, 120, 220, 136), closeTo(1, 0.01));
+    });
+
     test('a hidden batch draws nothing until shown again', () async {
       final batch = await progressLine();
       await batch.setVisible(false);

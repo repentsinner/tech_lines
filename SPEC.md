@@ -149,7 +149,9 @@ a path normalized to [0, 1], so effects that read it move at a speed set
 by distance rather than by segment count.
 
 - `setProgress` dims every fragment behind a cursor and brightens those
-  between the cursor and an optional window end.
+  between the cursor and an optional window end. The style sets how far
+  the fragments behind the cursor darken and how far they fade, so a
+  caller can set them back over a light background as over a dark one.
 - `setPulse` draws a band centred on a progress value with a half
   length. Inside the band, the line tints towards a colour, scales its
   opacity and its width, and may glow past its edge. The band holds full

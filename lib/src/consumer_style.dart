@@ -30,7 +30,7 @@ const styleTemplateSources = [
 /// compares the stamp with it. It changes only when the templates do, so a
 /// style built for one release stays valid in the next unless its line
 /// materials changed. A test fails when it no longer matches the sources.
-const styleTemplateRevision = '36c2a585d3a8';
+const styleTemplateRevision = '33a3106c60dc';
 
 /// The material name `tools/compile_style.sh` gives a style's material:
 /// `tech_lines templates:<revision> style:<name> pass:<body|edge>`.
