@@ -30,6 +30,7 @@ abstract final class ScreenLineParams {
   static const progressWindowEnd = 'progressWindowEnd';
   static const progressDim = 'progressDim';
   static const progressBoost = 'progressBoost';
+  static const progressFade = 'progressFade';
   static const edgeDrawsAll = 'edgeDrawsAll';
   static const pulseCenter = 'pulseCenter';
   static const pulseHalfLength = 'pulseHalfLength';
@@ -37,6 +38,7 @@ abstract final class ScreenLineParams {
   static const pulseOpacity = 'pulseOpacity';
   static const pulseWidthScale = 'pulseWidthScale';
   static const pulseGlowPixels = 'pulseGlowPixels';
+  static const pulseFade = 'pulseFade';
 
   /// Every name above. A consumer style's own parameters shall not reuse
   /// one (§spec:consumer-styles).
@@ -55,6 +57,7 @@ abstract final class ScreenLineParams {
     progressWindowEnd,
     progressDim,
     progressBoost,
+    progressFade,
     edgeDrawsAll,
     pulseCenter,
     pulseHalfLength,
@@ -62,6 +65,7 @@ abstract final class ScreenLineParams {
     pulseOpacity,
     pulseWidthScale,
     pulseGlowPixels,
+    pulseFade,
   };
 }
 
@@ -403,6 +407,10 @@ class ScreenLineRenderer {
       ScreenLineParams.progressBoost,
       style.progressBoost,
     );
+    await instance.setParameterFloat(
+      ScreenLineParams.progressFade,
+      style.progressFade,
+    );
 
     await LineBatch._writePulse(instance, null);
 
@@ -608,6 +616,11 @@ class LineBatch {
     await instance.setParameterFloat(
       ScreenLineParams.pulseGlowPixels,
       pulse?.glowPixels ?? 0,
+    );
+    await instance.setParameterFloat2(
+      ScreenLineParams.pulseFade,
+      pulse?.fadeBehind ?? 1,
+      pulse?.fadeAhead ?? 1,
     );
   }
 
