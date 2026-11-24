@@ -23,13 +23,15 @@ material {
         { type : float, name : progressWindowEnd, precision : high },
         { type : float, name : progressDim },
         { type : float, name : progressBoost },
+        { type : float, name : progressFade },
         { type : bool, name : edgeDrawsAll },
         { type : float, name : pulseCenter, precision : high },
         { type : float, name : pulseHalfLength, precision : high },
         { type : float4, name : pulseColor },
         { type : float, name : pulseOpacity },
         { type : float, name : pulseWidthScale },
-        { type : float, name : pulseGlowPixels }
+        { type : float, name : pulseGlowPixels },
+        { type : float2, name : pulseFade }
     ],
 
     variables : [

@@ -25,6 +25,12 @@ const _assetPrefix = 'packages/tech_lines/';
 
 bool _appCreated = false;
 
+/// Backend the harness renders with. On macOS, Filament creates an OpenGL
+/// headless swap chain on the main thread, which `dart test` never runs a
+/// run loop on, so the creation never returns. Metal creates it on the
+/// driver thread.
+final _backend = Platform.isMacOS ? Backend.METAL : Backend.OPENGL;
+
 /// Reads a material asset from the package's own directory.
 Future<Uint8List> loadPackageAsset(String key) async =>
     File(key.replaceFirst(_assetPrefix, '')).readAsBytesSync();
@@ -57,7 +63,7 @@ class GpuScene {
         config: FFIFilamentConfig(
           loadResource: (uri) async =>
               File(uri.replaceAll('file://', '')).readAsBytesSync(),
-          backend: Backend.OPENGL,
+          backend: _backend,
         ),
       );
       _appCreated = true;

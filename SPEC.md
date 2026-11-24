@@ -149,11 +149,15 @@ a path normalized to [0, 1], so effects that read it move at a speed set
 by distance rather than by segment count.
 
 - `setProgress` dims every fragment behind a cursor and brightens those
-  between the cursor and an optional window end.
+  between the cursor and an optional window end. The style sets how far
+  the fragments behind the cursor darken and how far they fade, so a
+  caller can set them back over a light background as over a dark one.
 - `setPulse` draws a band centred on a progress value with a half
   length. Inside the band, the line tints towards a colour, scales its
-  opacity and its width, and may glow past its edge. The band falls off
-  smoothly from its centre. The glow falls off exponentially with
+  opacity and its width, and may glow past its edge. The band holds full
+  strength from its centre and falls off smoothly over a share of its
+  half length on each side, set apart for the side behind the centre
+  and the side ahead of it. A share of 1 falls off from the centre. The glow falls off exponentially with
   distance past the line's edge and composites in the edge pass. While
   a pulse widens or glows, the quad reaches far enough to hold it.
 - The depth bias uses the line's width without the pulse, so a pulse
