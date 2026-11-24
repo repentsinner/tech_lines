@@ -1,3 +1,11 @@
+# [0.4.0](https://github.com/repentsinner/tech_lines/compare/v0.3.1...v0.4.0) (2026-11-24)
+
+
+### Features
+
+* fade each side of a pulse over its own share ([d73832c](https://github.com/repentsinner/tech_lines/commit/d73832c1191900a3084af657af005edd57f90b49))
+* let a line style fade what lies behind the progress cursor ([ac24f2d](https://github.com/repentsinner/tech_lines/commit/ac24f2d58b0466168f64567e2f34890e82540f22))
+
 ## [0.3.1](https://github.com/repentsinner/tech_lines/compare/v0.3.0...v0.3.1) (2026-11-16)
 
 
